@@ -234,14 +234,16 @@ setup_db() {
 }
 
 deploy_app() {
-  # Clone or update repository
+  # Release version to install
+  RELEASE_VERSION="${RELEASE_VERSION:-v1.0.0}"
+  
   if [ -d "$APP_DIR/.git" ]; then
-    echo "Atualizando repositório existente..."
-    $SUDO bash -c "cd '$APP_DIR' && git fetch origin && git reset --hard origin/main"
+    echo "Atualizando para release $RELEASE_VERSION..."
+    $SUDO bash -c "cd '$APP_DIR' && git fetch origin && git checkout $RELEASE_VERSION"
   else
-    echo "Clonando repositório..."
+    echo "Clonando release $RELEASE_VERSION..."
     $SUDO mkdir -p "$APP_DIR"
-    $SUDO git clone https://github.com/rafaelfmuniz/app-financeiro.git "$APP_DIR"
+    $SUDO git clone --branch $RELEASE_VERSION --single-branch https://github.com/rafaelfmuniz/app-financeiro.git "$APP_DIR"
   fi
   $SUDO chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
 }

@@ -2,6 +2,7 @@
 
 > Sistema de Controle Financeiro Multi-tenant com Dashboard, Relatórios e Gestão de Usuários
 
+[![Release](https://img.shields.io/badge/release-v1.0.0-blue)](https://github.com/rafaelfmuniz/app-financeiro/releases/tag/v1.0.0)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18+-blue)](https://react.dev/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue)](https://www.postgresql.org/)
@@ -158,12 +159,17 @@ O **Controle Financeiro** é uma aplicação web moderna para gestão financeira
 
 ## 📦 Instalação
 
-### Instalação Automatizada (Ubuntu/Debian)
+### 🚀 Instalação Automatizada (Ubuntu/Debian) - v1.0.0
 
 Execute em seu servidor:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/v1.0.0/scripts/deploy/install.sh | sudo bash
+```
+
+**Instalador de uma linha (Release v1.0.0):**
+```bash
+curl -fsSL https://github.com/rafaelfmuniz/app-financeiro/releases/download/v1.0.0/install.sh | sudo bash
 ```
 
 O instalador irá:
