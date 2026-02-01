@@ -1,0 +1,39 @@
+{
+  "name": "controle-financeiro",
+  "version": "1.0.0",
+  "description": "Sistema de Controle Financeiro Multi-tenant",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=backend & npm run dev --workspace=frontend",
+    "dev:backend": "npm run start --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspace=frontend && npm run build-frontend --workspace=backend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "start": "npm run start --workspace=backend",
+    "seed": "npm run seed --workspace=backend",
+    "install:all": "npm install --workspaces"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rafaelfmuniz/app-financeiro.git"
+  },
+  "keywords": [
+    "finance",
+    "controle-financeiro",
+    "multi-tenant",
+    "react",
+    "express",
+    "postgresql"
+  ],
+  "author": "Rafael Muniz",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

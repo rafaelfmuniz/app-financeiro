@@ -1,0 +1,16 @@
+[Unit]
+Description=Controle Financeiro
+After=network.target
+
+[Service]
+Type=simple
+User=finance
+Group=finance
+WorkingDirectory=/opt/controle-financeiro/backend
+EnvironmentFile=/opt/controle-financeiro/backend/.env
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
