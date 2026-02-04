@@ -5,7 +5,7 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/v2.0.0.html).
 
-## [1.1.0] - 2026-02-03
+## [1.1.0] - 2026-02-03 (Instalador Profissional)
 
 ### Adicionado
 - Sistema de refresh token para autenticação
@@ -29,12 +29,15 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/
 - Atualização de variáveis de ambiente em arquivos .env.sample
 
 ### Instalação
-- Instalador totalmente automatizado (zero perguntas ao usuário)
-- Auto-geração de todas as credenciais (banco, admin, JWT)
-- Verificação de instalação existente com opção de update
-- Backup automático antes de qualquer alteração
-- Feedback claro do que foi feito em cada passo
-- Interação mínima e profissional
+- **Instalador totalmente reescrito com práticas profissionais**
+- Detecção de instalações existentes antes de qualquer ação
+- Compara versão instalada vs versão remota
+- Menu de opções: Atualizar / Reconfigurar / Cancelar
+- Backup completo automático (banco de dados, .env, commit git)
+- Feedback claro em cada passo (1/12, 2/12, etc.)
+- Preservação de instalações existentes ao atualizar
+- Modo de instalação fresca com aviso claro sobre perda de dados
+- Formatação profissional com caixas ASCII artísticas
 
 ### Segurança
 - Implementação de refresh token com rotação automática
@@ -43,13 +46,14 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/
 - Armazenamento seguro de refresh tokens no banco com hash SHA-256
 - Invalidação de refresh tokens ao fazer logout
 - Proteção CSRF com cookies httpOnly (preparado para implementação futura)
+- Previne perda de dados em atualizações (backup automático antes de mudanças)
 
 ### Corrigido
-- Sessões que ficavam abertas indefinidamente após fechar navegador
-- Informações do sistema invisíveis ao reabrir navegador após login
-- Ausência de tratamento de erro 401 causando travamento
-- Falta de renovação automática de tokens expirados
-- Instalador que sobrescrevia aplicações sem pergunta
+- **Crítico**: Sobrescrição silenciosa de aplicações em produção
+- **Crítico**: Perda de dados ao sobrescrever instalação existente
+- **Corrigido**: Instalador detecta, avisa e cria backups automáticos
+- **Corrigido**: Feedback claro ao usuário em cada etapa da instalação
+- **Corrigido**: Separção entre instalação nova e atualização de existente
 
 ## [1.0.0] - 2026-01-31
 
