@@ -2,12 +2,14 @@
 
 ## 🚀 Overview
 
-This release implements a modern authentication system with refresh tokens, addressing critical security and usability issues:
+This release implements a modern authentication system with refresh tokens and provides an **enterprise all-in-one installer**:
 
 - **Problem**: Sessions remained open indefinitely (8 hours), causing security risks
 - **Problem**: Closing and reopening browser showed logged-in state but with no visible data
 - **Problem**: No automatic token renewal, forcing users to re-login
+- **Problem**: Installation was complex and required multiple steps
 - **Solution**: Short access tokens (15min) + refresh tokens (30min) with automatic renewal
+- **Solution**: Interactive enterprise installer that handles everything automatically
 
 ---
 
@@ -61,9 +63,40 @@ JWT_REFRESH_EXPIRATION=30m
 
 ## 📦 Migration Instructions
 
-### For New Installations
+### For New Installations (Recommended - Enterprise Installer)
 
-Use latest installer:
+**NEW: Interactive all-in-one installer**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install-enterprise.sh | sudo bash
+```
+
+**The enterprise installer will:**
+- ✅ Install all system dependencies
+- ✅ Install and configure PostgreSQL
+- ✅ Install Node.js (or upgrade if needed)
+- ✅ Prompt for database configuration
+- ✅ Create database and user
+- ✅ Generate secure secrets automatically
+- ✅ Configure application with all settings
+- ✅ Run database migrations
+- ✅ Install npm dependencies
+- ✅ Build frontend
+- ✅ Configure systemd service
+- ✅ Start application
+- ✅ Verify installation
+- ✅ Display access URLs and credentials
+- ✅ Save credentials to secure file
+
+**Features:**
+- 🎨 Colorful output with progress indicators
+- 🔧 Interactive prompts for all configuration
+- 🛡️ Error handling and validation
+- 📋 Saves credentials to secure file
+- ✅ Health check verification
+- 📝 Shows logs and management commands
+
+### Alternative: Use previous installer
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
