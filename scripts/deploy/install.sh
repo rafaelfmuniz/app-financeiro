@@ -75,18 +75,65 @@ verifica_instalacao_existente() {
   
   INSTALACAO_EXISTENTE=0
   
+  # Verificar múltiplos indicadores de instalação
+  TEM_GIT=0
+  TEM_SERVICO=0
+  TEM_BACKEND=0
+  TEM_FRONTEND=0
+  TEM_BANCO=0
+  
+  # 1. Verificar se existe diretório .git
   if [ -d "$APP_DIR/.git" ]; then
-    # Existe instalação via Git
+    TEM_GIT=1
+  fi
+  
+  # 2. Verificar se serviço existe
+  if [ -f "/etc/systemd/system/$SERVICE_NAME.service" ]; then
+    TEM_SERVICO=1
+  fi
+  
+  # 3. Verificar se backend existe
+  if [ -d "$APP_DIR/backend" ] && [ -f "$APP_DIR/backend/src/server.js" ]; then
+    TEM_BACKEND=1
+  fi
+  
+  # 4. Verificar se frontend existe
+  if [ -d "$APP_DIR/frontend" ] && [ -f "$APP_DIR/frontend/package.json" ]; then
+    TEM_FRONTEND=1
+  fi
+  
+  # 5. Verificar se banco existe (via .env)
+  if [ -f "$APP_DIR/backend/.env" ]; then
+    TEM_BANCO=1
+  fi
+  
+  # Decidir se existe instalação
+  # Precisa de PELO MENOS 2 destes indicadores
+  TOTAL_INDICADORES=$((TEM_GIT + TEM_SERVICO + TEM_BACKEND + TEM_FRONTEND + TEM_BANCO))
+  
+  if [ $TOTAL_INDICADORES -ge 2 ]; then
     INSTALACAO_EXISTENTE=1
+    print_success "Instalação existente detectada em: $APP_DIR"
+    echo -e "  ${CYAN}✓${NC} Git: $([ $TEM_GIT -eq 1 ] && echo 'Sim' || echo 'Não')"
+    echo -e "  ${CYAN}✓${NC} Serviço: $([ $TEM_SERVICO -eq 1 ] && echo 'Sim' || echo 'Não')"
+    echo -e "  ${CYAN}✓${NC} Backend: $([ $TEM_BACKEND -eq 1 ] && echo 'Sim' || echo 'Não')"
+    echo -e "  ${CYAN}✓${NC} Frontend: $([ $TEM_FRONTEND -eq 1 ] && echo 'Sim' || echo 'Não')"
+    echo -e "  ${CYAN}✓${NC} Banco: $([ $TEM_BANCO -eq 1 ] && echo 'Sim' || echo 'Não')"
+    echo ""
     
-    # Verificar versão instalada
-    cd "$APP_DIR" 2>/dev/null || true
-    if git rev-parse --git-dir >/dev/null 2>&1; then
-      CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "desconhecida")
-      echo -e "Versão instalada: ${CYAN}$CURRENT_VERSION${NC}"
+    # Verificar versão instalada (se tiver git)
+    if [ $TEM_GIT -eq 1 ]; then
+      cd "$APP_DIR" 2>/dev/null || true
+      if git rev-parse --git-dir >/dev/null 2>&1; then
+        CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "desconhecida")
+        echo -e "Versão instalada: ${CYAN}$CURRENT_VERSION${NC}"
+      else
+        CURRENT_VERSION="desconhecida"
+        echo -e "Versão instalada: ${CYAN}desconhecida${NC}"
+      fi
     else
       CURRENT_VERSION="desconhecida"
-      echo -e "Versão instalada: ${CYAN}desconhecida${NC}"
+      echo -e "Versão instalada: ${CYAN}desconhecida (sem git)${NC}"
     fi
     
     # Verificar se serviço está rodando
@@ -98,11 +145,25 @@ verifica_instalacao_existente() {
       print_info "Serviço parado"
     fi
     
-    return 0
+    return 1  # Retorna 1 = instalação existe
   else
     INSTALACAO_EXISTENTE=0
     print_info "Nenhuma instalação detectada"
-    return 1
+    echo -e "  ${YELLOW}Indicadores encontrados: $TOTAL_INDICADORES/5${NC}"
+    
+    # Tentar detectar em locais alternativos
+    echo ""
+    print_info "Verificando locais alternativos..."
+    
+    # Listar possíveis locais onde poderia estar
+    LOCAIS=("/var/www/controle-financeiro" "/home/controle-financeiro" "/opt/financeiro")
+    for local in "${LOCAIS[@]}"; do
+      if [ -d "$local" ]; then
+        echo -e "  ${YELLOW}⚠${NC} Encontrado: $local (instalação fora do padrão)"
+      fi
+    done
+    
+    return 0  # Retorna 0 = não tem instalação
   fi
 }
 
@@ -597,20 +658,9 @@ main() {
   verifica_instalacao_existente
   TEM_INSTALACAO=$?
   
-  if [ "$TEM_INSTALACAO" -eq 0 ]; then
-    # Não existe instalação fresh install
-    print_info "Nenhuma instalação detectada. Executando instalação nova."
-    print_warning "ATENÇÃO: Isso instalará uma versão FRESH do Controle Financeiro."
-    print_warning "Se você tem uma instalação existente que deseja manter, cancele agora."
-    print_warning ""
-    print_info "Pressione ENTER para continuar ou CTRL+C para cancelar..."
-    read -r
-    
-    # Instalação fresh
-    instala_fresh
-  else
-    # Existe instalação - verificar/atualizar
-    print_success "Instalação existente detectada em: $APP_DIR"
+  if [ "$TEM_INSTALACAO" -eq 1 ]; then
+    # EXISTE instalação
+    print_success "Instalação existente detectada"
     
     # Buscar versão mais recente
     busca_ultima_versao
@@ -632,6 +682,19 @@ main() {
       print_info "Atualização cancelada pelo usuário."
       exit 0
     fi
+  else
+    # NÃO existe instalação
+    print_warning "Nenhuma instalação detectada em: $APP_DIR"
+    print_warning ""
+    print_warning "ATENÇÃO: Isso instalará uma versão FRESH do Controle Financeiro."
+    print_warning "Isso irá DELETAR tudo em $APP_DIR"
+    print_warning "Se você tem uma instalação existente em outro local, cancele agora."
+    print_warning ""
+    print_info "Pressione ENTER para continuar ou CTRL+C para cancelar..."
+    read -r
+    
+    # Instalação fresh
+    instala_fresh
   fi
 }
 
