@@ -11,7 +11,7 @@ set -euo pipefail
 # ============================================
 # CONFIGURAÇÕES
 # ============================================
-readonly SCRIPT_VERSION="1.4.0"
+readonly SCRIPT_VERSION="1.4.1"
 readonly INSTALL_DIR="/opt/controle-financeiro"
 readonly SERVICE_NAME="controle-financeiro"
 readonly REPO_URL="https://github.com/rafaelfmuniz/app-financeiro.git"
@@ -1008,7 +1008,8 @@ get_latest_version() {
         return
     fi
     
-    version=$(echo "$response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4) || true
+    # Extrair tag_name corretamente (usar jq para parsing JSON)
+    version=$(echo "$response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4 | sed 's/"//g' || true)
     
     if [[ -z "$version" ]]; then
         log_warning "Não foi possível extrair versão da resposta da API"
@@ -1022,7 +1023,7 @@ get_latest_version() {
     
     if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
         log_warning "Formato de versão inválido: $version"
-        echo "v$SCRIPT_VERSION"
+        echo "$SCRIPT_VERSION"
         return
     fi
     
