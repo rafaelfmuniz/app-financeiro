@@ -7,6 +7,9 @@
 #
 set -euo pipefail
 
+# Forçar interpretação de escape sequences em echo
+export SHELLOPTS
+
 ###############################################
 # CONFIGURAÇÃO
 ###############################################
@@ -180,44 +183,44 @@ busca_ultima_versao() {
 }
 
 confirma_atualizacao() {
-  echo ""
-  echo -e "${YELLOW}═══════════════════════════════════════${NC}"
-  echo -e "${YELLOW} NOVA VERSÃO DISPONÍVEL${NC}"
-  echo -e "${YELLOW}═════════════════════════════════════${NC}"
-  echo ""
-  echo -e "${CYAN}Versão instalada: ${NC}$CURRENT_VERSION"
-  echo -e "${CYAN}Versão disponível: ${NC}$LATEST_VERSION"
-  echo ""
+  printf '\n'
+  printf '%b═══════════════════════════════════════%b\n' "$YELLOW" "$NC"
+  printf '%b NOVA VERSÃO DISPONÍVEL%b\n' "$YELLOW" "$NC"
+  printf '%b═════════════════════════════════════%b\n' "$YELLOW" "$NC"
+  printf '\n'
+  printf '%bVersão instalada: %b%s%b\n' "$CYAN" "$NC" "$CURRENT_VERSION" "$NC"
+  printf '%bVersão disponível: %b%s%b\n' "$CYAN" "$NC" "$LATEST_VERSION" "$NC"
+  printf '\n'
   print_warning "Uma nova versão do Controle Financeiro está disponível."
-  echo ""
-  echo -e "${YELLOW}Escolha uma opção:${NC}"
-  echo ""
-  echo "  1) ${GREEN}ATUALIZAR${NC} para $LATEST_VERSION (recomendado)"
-  echo "  2) ${YELLOW}MANTER${NC} versão atual ($CURRENT_VERSION)"
-  echo "  3) ${RED}CANCELAR${NC}"
-  echo ""
+  printf '\n'
+  printf '%bEscolha uma opção:%b\n' "$YELLOW" "$NC"
+  printf '\n'
+  printf "  1) %bATUALIZAR%b para %s (recomendado)\n" "$GREEN" "$NC" "$LATEST_VERSION"
+  printf "  2) %bMANTER%b versão atual (%s)\n" "$YELLOW" "$NC" "$CURRENT_VERSION"
+  printf "  3) %bCANCELAR%b\n" "$RED" "$NC"
+  printf '\n'
   
   # Ler do terminal real (/dev/tty) em vez de stdin
   read -p "Sua escolha [1-3]: " escolha < /dev/tty
   
   case "$escolha" in
     1)
-      echo ""
+      printf '\n'
       print_success "Opção selecionada: Atualizar"
       return 0
       ;;
     2)
-      echo ""
+      printf '\n'
       print_info "Opção selecionada: Manter versão atual"
       return 1
       ;;
     3)
-      echo ""
+      printf '\n'
       print_info "Instalação cancelada pelo usuário"
       exit 0
       ;;
     *)
-      echo ""
+      printf '\n'
       print_error "Opção inválida"
       return 2
       ;;
