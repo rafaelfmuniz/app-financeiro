@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Controle Financeiro - Instalador v1.5.0
+# Controle Financeiro - Instalador v1.6.0
 # Sistema de Gestão Financeira Multi-tenant
 #
 # Uso: curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
@@ -11,7 +11,7 @@ set -euo pipefail
 # ============================================
 # CONFIGURAÇÕES
 # ============================================
-readonly SCRIPT_VERSION="1.5.0"
+readonly SCRIPT_VERSION="1.6.0"
 readonly INSTALL_DIR="/opt/controle-financeiro"
 readonly SERVICE_NAME="controle-financeiro"
 readonly REPO_URL="https://github.com/rafaelfmuniz/app-financeiro.git"
@@ -1078,67 +1078,127 @@ main() {
     log_info "Instalador v${SCRIPT_VERSION}"
     log_info "=========================================="
     
-    show_menu
-    
-    local choice
-    choice=$(read_tty "Digite uma opção (1-6): ")
-    
-    case "$choice" in
-        1)
-            echo ""
-            if check_existing_installation; then
-                log_error "Instalação já existe"
-                echo "Use a opção 2 (Reinstalar) ou 3 (Atualizar)"
+    # Verificar argumentos de linha de comando
+    if [[ $# -gt 0 ]]; then
+        case "$1" in
+            --install|-i)
+                echo ""
+                if check_existing_installation; then
+                    log_error "Instalação já existe"
+                    echo "Use --reinstall ou --update"
+                    exit 1
+                fi
+                install_new
+                ;;
+            --reinstall|-r)
+                echo ""
+                if ! check_existing_installation; then
+                    log_error "Nenhuma instalação encontrada"
+                    echo "Use --install"
+                    exit 1
+                fi
+                reinstall
+                ;;
+            --update|-u)
+                echo ""
+                if ! check_existing_installation; then
+                    log_error "Nenhuma instalação encontrada"
+                    echo "Use --install"
+                    exit 1
+                fi
+                update
+                ;;
+            --uninstall)
+                echo ""
+                if ! check_existing_installation; then
+                    log_error "Nenhuma instalação encontrada"
+                    exit 1
+                fi
+                uninstall
+                ;;
+            --help|-h)
+                echo "Uso: $0 [OPÇÃO]"
+                echo ""
+                echo "Opções:"
+                echo "  --install, -i      Instalação limpa"
+                echo "  --reinstall, -r    Reinstalação (remove tudo)"
+                echo "  --update, -u       Atualizar (mantém dados)"
+                echo "  --uninstall        Desinstalar"
+                echo "  --help, -h         Mostrar esta ajuda"
+                echo ""
+                echo "Sem opções: modo interativo com menu"
+                exit 0
+                ;;
+            *)
+                log_error "Opção inválida: $1"
+                echo "Use --help para ver as opções disponíveis"
                 exit 1
-            fi
-            install_new
-            ;;
-        2)
-            echo ""
-            if ! check_existing_installation; then
-                log_error "Nenhuma instalação encontrada"
-                echo "Use a opção 1 (Instalar)"
+                ;;
+        esac
+    else
+        # Modo interativo
+        show_menu
+        
+        local choice
+        choice=$(read_tty "Digite uma opção (1-6): ")
+        
+        case "$choice" in
+            1)
+                echo ""
+                if check_existing_installation; then
+                    log_error "Instalação já existe"
+                    echo "Use a opção 2 (Reinstalar) ou 3 (Atualizar)"
+                    exit 1
+                fi
+                install_new
+                ;;
+            2)
+                echo ""
+                if ! check_existing_installation; then
+                    log_error "Nenhuma instalação encontrada"
+                    echo "Use a opção 1 (Instalar)"
+                    exit 1
+                fi
+                reinstall
+                ;;
+            3)
+                echo ""
+                if ! check_existing_installation; then
+                    log_error "Nenhuma instalação encontrada"
+                    echo "Use a opção 1 (Instalar)"
+                    exit 1
+                fi
+                update
+                ;;
+            4)
+                echo ""
+                if ! check_existing_installation; then
+                    log_error "Nenhuma instalação encontrada"
+                    echo "Use a opção 1 (Instalar)"
+                    exit 1
+                fi
+                uninstall
+                ;;
+            5)
+                echo ""
+                if ! check_existing_installation; then
+                    log_error "Nenhum backup encontrado para restaurar"
+                    exit 1
+                fi
+                restore_backup
+                ;;
+            6)
+                echo ""
+                log_info "Instalação cancelada"
+                exit 0
+                ;;
+            *)
+                echo ""
+                log_error "Opção inválida"
                 exit 1
-            fi
-            reinstall
-            ;;
-        3)
-            echo ""
-            if ! check_existing_installation; then
-                log_error "Nenhuma instalação encontrada"
-                echo "Use a opção 1 (Instalar)"
-                exit 1
-            fi
-            update
-            ;;
-        4)
-            echo ""
-            if ! check_existing_installation; then
-                log_error "Nenhuma instalação encontrada"
-                echo "Use a opção 1 (Instalar)"
-                exit 1
-            fi
-            uninstall
-            ;;
-        5)
-            echo ""
-            if ! check_existing_installation; then
-                log_error "Nenhum backup encontrado para restaurar"
-                exit 1
-            fi
-            restore_backup
-            ;;
-        6)
-            echo ""
-            log_info "Instalação cancelada"
-            exit 0
-            ;;
-        *)
-            echo ""
-            log_error "Opção inválida"
-            exit 1
-            ;;
-    esac
+                ;;
+        esac
+    fi
 }
 
 main "$@"
