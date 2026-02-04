@@ -145,7 +145,7 @@ verifica_instalacao_existente() {
       print_info "Serviço parado"
     fi
     
-    return 1  # Retorna 1 = instalação existe
+    return 0  # Retorna 0 = instalação existe (sucesso)
   else
     INSTALACAO_EXISTENTE=0
     print_info "Nenhuma instalação detectada"
@@ -163,7 +163,7 @@ verifica_instalacao_existente() {
       fi
     done
     
-    return 0  # Retorna 0 = não tem instalação
+    return 1  # Retorna 1 = não tem instalação (erro)
   fi
 }
 
