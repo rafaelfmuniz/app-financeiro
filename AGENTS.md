@@ -87,6 +87,15 @@ console.log('Done');
 -- Users (com tenant)
 users (id, email, password_hash, name, username, tenant_id, created_at)
 
+-- Refresh Tokens (para sistema de refresh token)
+CREATE TABLE refresh_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Categories
 CREATE TABLE categories (
   id SERIAL PRIMARY KEY,
@@ -141,6 +150,40 @@ const result = await query(
 
 ## 🔐 Autenticação
 
+### Sistema de Refresh Token
+
+O sistema usa **access tokens curtos** (15 minutos) e **refresh tokens longos** (7 dias):
+
+```javascript
+// Login retorna:
+{
+  token: "access_token_jwt_15min",
+  refreshToken: "refresh_token_hex_7dias"
+}
+
+// Frontend usa access token nas requisições
+// Quando access token expira (401), usa refresh token para obter novo access token
+```
+
+### Rotas de Autenticação
+
+```javascript
+// Login
+POST /api/auth/login
+Body: { email, password }
+Response: { token, refreshToken, ...user info }
+
+// Refresh token
+POST /api/auth/refresh
+Body: { refreshToken }
+Response: { token: new_access_token, refreshToken: new_refresh_token }
+
+// Logout (invalida refresh token)
+POST /api/auth/logout
+Body: { refreshToken }
+Response: { ok: true }
+```
+
 ### Uso do Middleware
 
 ```javascript
@@ -160,10 +203,67 @@ router.post('/api/auth/login', async (req, res) => { });
 ```javascript
 // Cliente envia:
 headers: {
-  'Authorization': 'Bearer <jwt_token>'
+  'Authorization': 'Bearer <access_token>'
 }
 
 // Middleware auth extrai e valida automaticamente
+// Interceptor no frontend trata 401 automaticamente com refresh token
+```
+
+### Geração e Validação de Refresh Tokens
+
+```javascript
+// Gerar refresh token
+const refreshToken = crypto.randomBytes(64).toString('hex');
+const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+await pool.query(
+  'INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+  [userId, tokenHash, expiresAt]
+);
+
+// Validar refresh token
+const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+const result = await pool.query(
+  'SELECT rt.*, u.* FROM refresh_tokens rt JOIN users u ON u.id = rt.user_id ' +
+  'WHERE rt.token_hash = $1 AND rt.expires_at > NOW()',
+  [tokenHash]
+);
+```
+
+### Configuração de Expiração
+
+```javascript
+// Variáveis de ambiente
+JWT_ACCESS_EXPIRATION=15m  // Access token curto
+JWT_REFRESH_EXPIRATION=7d  // Refresh token longo
+
+// Backend usa constantes
+const ACCESS_TOKEN_EXPIRATION = '15m';
+const REFRESH_TOKEN_EXPIRATION_DAYS = 7;
+```
+
+### Comportamento do Frontend
+
+```javascript
+// Interceptor automático em api.js
+// 1. Requisição com 401 -> Tenta refresh
+// 2. Refresh bem-sucedido -> Repete requisição
+// 3. Refresh falha -> Logout com toast "Sessão expirada"
+
+// Callbacks disponíveis
+import { setTokenRefreshCallback, setSessionExpiredCallback } from './api';
+
+// Opcional: ser notificado quando token é atualizado
+setTokenRefreshCallback((newToken) => {
+  console.log('Token atualizado:', newToken);
+});
+
+// Opcional: customizar mensagem de sessão expirada
+setSessionExpiredCallback(() => {
+  pushToast('Sua sessão expirou. Faça login novamente.', 'warning');
+});
+```
 ```
 
 ## 📧 Sistema de Email

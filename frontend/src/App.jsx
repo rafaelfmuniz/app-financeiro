@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import api from './api';
+import api, { logout, setTokenRefreshCallback, setSessionExpiredCallback } from './api';
 
 const currencyOptions = {
   USD: { label: 'USD ($)', locale: 'en-US', code: 'USD' },
@@ -157,6 +157,10 @@ const safeParseUser = () => {
 export default function App() {
   const [token, setToken] = useState(() => {
     const raw = safeGetItem('token');
+    return raw && raw !== 'undefined' ? raw : '';
+  });
+  const [refreshToken, setRefreshToken] = useState(() => {
+    const raw = safeGetItem('refreshToken');
     return raw && raw !== 'undefined' ? raw : '';
   });
   const [userMeta, setUserMeta] = useState(() => safeParseUser());
@@ -488,7 +492,7 @@ export default function App() {
               <input type="password" value={resetConfirmPassword} onChange={(e) => setResetConfirmPassword(e.target.value)} />
             </label>
             <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={() => { setShowPasswordResetModal(false); logout(); }} disabled={resetProcessing}>Sair</button>
+              <button className="btn btn-ghost" onClick={() => { setShowPasswordResetModal(false); handleLogout(); }} disabled={resetProcessing}>Sair</button>
               <button className="btn btn-primary" onClick={submitTempPasswordReset} disabled={resetProcessing}>{resetProcessing ? '⏳ Salvando...' : 'Salvar senha'}</button>
             </div>
           </div>
@@ -816,9 +820,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      safeRemoveItem('token');
+      return;
+    }
     safeSetItem('token', token);
   }, [token]);
+
+  useEffect(() => {
+    if (!refreshToken) {
+      safeRemoveItem('refreshToken');
+      return;
+    }
+    safeSetItem('refreshToken', refreshToken);
+  }, [refreshToken]);
 
   useEffect(() => {
     if (!token || !userMeta) return;
@@ -974,6 +989,7 @@ export default function App() {
       }
       setLoginFailures(0);
       setToken(data.token);
+      setRefreshToken(data.refreshToken || '');
       const meta = {
         role: data.role,
         name: data.name,
@@ -1040,20 +1056,37 @@ export default function App() {
     }
   };
 
-  const logout = () => {
+  const handleLogout = () => {
     setToken('');
+    setRefreshToken('');
     setUserMeta(null);
-    safeRemoveItem('token');
-    safeRemoveItem('userMeta');
     setTenants([]);
     setActiveTenantId(null);
     setActivePage('dashboard');
-    if (isAdminRoute) {
-      window.location.href = '/admin';
-    } else {
-      window.location.href = '/';
-    }
+    logout();
   };
+
+  useEffect(() => {
+    const validateAndRefreshToken = async () => {
+      if (!token) return;
+      if (!userMeta && refreshToken) {
+        try {
+          const { data } = await api.post('/auth/refresh', { refreshToken });
+          setToken(data.accessToken);
+          setRefreshToken(data.refreshToken);
+        } catch (err) {
+          handleLogout();
+        }
+      }
+    };
+    validateAndRefreshToken();
+  }, [token, refreshToken, userMeta]);
+
+  useEffect(() => {
+    setSessionExpiredCallback(() => {
+      pushToast('Sessão expirada. Por favor, faça login novamente.', 'warning');
+    });
+  }, []);
 
   const buildPeriod = () => periodParams(filters);
 
@@ -2098,10 +2131,10 @@ export default function App() {
          <button className="btn btn-ghost btn-icon" onClick={toggleTheme} title={themeLabels[themeChoice]}>
            <Icon name={themeIcons[themeChoice]} />
          </button>
-         <button className="btn btn-ghost" onClick={logout}>
-           <Icon name="logout" />
-           Sair
-         </button>
+          <button className="btn btn-ghost" onClick={handleLogout}>
+            <Icon name="logout" />
+            Sair
+          </button>
        </div>
     </header>
   );
@@ -3698,7 +3731,7 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-actions">
-          <button className="btn btn-ghost" onClick={logout}>
+          <button className="btn btn-ghost" onClick={handleLogout}>
             <Icon name="logout" /> Sair
           </button>
         </div>
@@ -3734,7 +3767,7 @@ export default function App() {
             <button className="btn btn-ghost btn-icon" onClick={toggleTheme} title={themeLabels[themeChoice]}>
               <Icon name={themeIcons[themeChoice]} />
             </button>
-            <button className="btn btn-ghost btn-icon" onClick={logout} aria-label="Sair">
+            <button className="btn btn-ghost btn-icon" onClick={handleLogout} aria-label="Sair">
               <Icon name="logout" />
             </button>
             <div className="chip">{displayRole}</div>

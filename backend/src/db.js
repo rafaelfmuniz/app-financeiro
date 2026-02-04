@@ -167,6 +167,27 @@ const ensureSchema = async () => {
       WHERE must_reset_password IS NULL;
     `);
     await client.query(`
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL UNIQUE,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS refresh_tokens_token_hash_idx
+      ON refresh_tokens (token_hash);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS refresh_tokens_expires_at_idx
+      ON refresh_tokens (expires_at);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS refresh_tokens_user_id_idx
+      ON refresh_tokens (user_id);
+    `);
+    await client.query(`
       UPDATE users
       SET can_view = true, can_create = true, can_edit = true, can_delete = true
       WHERE role = 'admin';

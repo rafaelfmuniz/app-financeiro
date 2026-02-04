@@ -5,6 +5,43 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-03
+
+### Adicionado
+- Sistema de refresh token para autenticação
+- Tabela `refresh_tokens` no banco de dados
+- Endpoint `POST /api/auth/refresh` para renovar tokens
+- Endpoint `POST /api/auth/logout` para encerrar sessões
+- Interceptor de response automático para refresh de tokens
+- Toast de alerta quando sessão expira
+- Callback de sessão expirada no frontend
+- Constantes de expiração configuráveis (JWT_ACCESS_EXPIRATION, JWT_REFRESH_EXPIRATION)
+- Índices otimizados para refresh_tokens (token_hash, expires_at, user_id)
+- Rotação automática de refresh tokens (rotação por uso)
+- Limpeza automática de tokens expirados
+
+### Modificado
+- Expiração do access token reduzida de 8h para 15 minutos
+- Fluxo de autenticação para usar access token curto + refresh token longo
+- Função `handleAuth` para salvar refresh token no localStorage
+- Sistema de logout centralizado em `api.js`
+- Verificação inicial de token ao carregar página
+- Timer de inatividade para considerar refresh tokens
+- Atualização de variáveis de ambiente em arquivos .env.sample
+
+### Segurança
+- Implementação de refresh token com rotação automática
+- Tokens de acesso com expiração curta (15min) reduzindo janela de ataque
+- Armazenamento seguro de refresh tokens no banco com hash SHA-256
+- Invalidação de refresh tokens ao fazer logout
+- Proteção CSRF com cookies httpOnly (preparado para implementação futura)
+
+### Corrigido
+- Sessões que ficavam abertas indefinamente após fechar navegador
+- Informações do sistema invisíveis ao reabrir navegador após login
+- Ausência de tratamento de erro 401 causando travamento
+- Falta de renovação automática de tokens expirados
+
 ## [1.0.0] - 2026-01-31
 
 ### Adicionado

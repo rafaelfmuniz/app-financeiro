@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
@@ -12,6 +12,8 @@ const LOGIN_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_BLOCK_MS = 15 * 60 * 1000;
 const TEMP_PASSWORD_MINUTES = 10;
+const ACCESS_TOKEN_EXPIRATION = '15m';
+const REFRESH_TOKEN_EXPIRATION_DAYS = 7;
 const loginAttempts = new Map();
 
 const isValidEmail = (value) => /.+@.+\..+/.test(value);
@@ -49,6 +51,40 @@ const clearAttempts = (key) => {
   if (loginAttempts.has(key)) {
     loginAttempts.delete(key);
   }
+};
+
+const generateRefreshToken = async (userId) => {
+  const refreshToken = crypto.randomBytes(64).toString('hex');
+  const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60 * 1000);
+  await pool.query(
+    'INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+    [userId, refreshTokenHash, expiresAt]
+  );
+  return refreshToken;
+};
+
+const cleanupExpiredRefreshTokens = async () => {
+  await pool.query('DELETE FROM refresh_tokens WHERE expires_at < NOW()');
+};
+
+const validateRefreshToken = async (refreshToken) => {
+  const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  const result = await pool.query(
+    'SELECT rt.id, rt.user_id, u.email, u.role, u.tenant_id, u.is_master, u.can_view, u.can_create, u.can_edit, u.can_delete, t.name AS tenant_name ' +
+    'FROM refresh_tokens rt ' +
+    'JOIN users u ON u.id = rt.user_id ' +
+    'LEFT JOIN tenants t ON t.id = u.tenant_id ' +
+    'WHERE rt.token_hash = $1 AND rt.expires_at > NOW()',
+    [tokenHash]
+  );
+  return result.rowCount > 0 ? result.rows[0] : null;
+};
+
+const rotateRefreshToken = async (oldRefreshToken, userId) => {
+  const oldTokenHash = crypto.createHash('sha256').update(oldRefreshToken).digest('hex');
+  await pool.query('DELETE FROM refresh_tokens WHERE token_hash = $1', [oldTokenHash]);
+  return await generateRefreshToken(userId);
 };
 
 router.post('/register', authRequired, requireAdmin, async (req, res) => {
@@ -96,7 +132,7 @@ router.post('/register', authRequired, requireAdmin, async (req, res) => {
     );
 
     const tenantInfo = await pool.query('SELECT name FROM tenants WHERE id = $1', [resolvedTenantId]);
-    const token = jwt.sign(
+    const accessToken = jwt.sign(
       {
         id: result.rows[0].id,
         email,
@@ -105,11 +141,13 @@ router.post('/register', authRequired, requireAdmin, async (req, res) => {
         isMaster: false,
       },
       process.env.JWT_SECRET,
-      { expiresIn: '8h' }
+      { expiresIn: ACCESS_TOKEN_EXPIRATION }
     );
+    const refreshToken = await generateRefreshToken(result.rows[0].id);
 
     return res.status(201).json({
-      token,
+      token: accessToken,
+      refreshToken,
       role: result.rows[0].role,
       name: result.rows[0].name,
       username: result.rows[0].username,
@@ -219,7 +257,7 @@ router.post('/login', async (req, res) => {
       await pool.query('UPDATE users SET must_reset_password = true WHERE id = $1', [user.id]);
     }
 
-    const token = jwt.sign(
+    const accessToken = jwt.sign(
       {
         id: user.id,
         email: user.email,
@@ -228,11 +266,13 @@ router.post('/login', async (req, res) => {
         isMaster,
       },
       process.env.JWT_SECRET,
-      { expiresIn: '8h' }
+      { expiresIn: ACCESS_TOKEN_EXPIRATION }
     );
+    const refreshToken = await generateRefreshToken(user.id);
 
     return res.json({
-      token,
+      token: accessToken,
+      refreshToken,
       role: user.role,
       name: user.name,
       username: user.username,
@@ -349,6 +389,56 @@ router.post('/reset', async (req, res) => {
   } catch (err) {
     return res.status(500).json({ error: 'Erro no servidor' });
   }
+});
+
+router.post('/refresh', async (req, res) => {
+  const { refreshToken } = req.body || {};
+  if (!refreshToken || typeof refreshToken !== 'string') {
+    return res.status(400).json({ error: 'Refresh token é obrigatório' });
+  }
+
+  try {
+    await cleanupExpiredRefreshTokens();
+    const user = await validateRefreshToken(refreshToken);
+    if (!user) {
+      return res.status(401).json({ error: 'Refresh token inválido ou expirado' });
+    }
+
+    const newAccessToken = jwt.sign(
+      {
+        id: user.user_id,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenant_id,
+        isMaster: user.is_master,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: ACCESS_TOKEN_EXPIRATION }
+    );
+
+    const newRefreshToken = await rotateRefreshToken(refreshToken, user.user_id);
+
+    return res.json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch (err) {
+    console.error('[AUTH] Refresh token error:', err);
+    return res.status(500).json({ error: 'Erro ao renovar sessão' });
+  }
+});
+
+router.post('/logout', async (req, res) => {
+  const { refreshToken } = req.body || {};
+  if (refreshToken && typeof refreshToken === 'string') {
+    try {
+      const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+      await pool.query('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
+    } catch (err) {
+      console.error('[AUTH] Logout error:', err);
+    }
+  }
+  return res.json({ ok: true });
 });
 
 module.exports = router;
