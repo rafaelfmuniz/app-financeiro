@@ -1970,7 +1970,7 @@ export default function App() {
 
   const getCategoryKindLabelByKind = (kind) => defaultCategoryLabels[kind] || defaultCategoryLabels.variable;
 
-  const appVersion = 'V1.0.0';
+  const appVersion = 'V1.1.0';
   const navItems = isMaster
     ? [
         { id: 'master', label: 'Administrativo', icon: 'shield_person' },
