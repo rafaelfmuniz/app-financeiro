@@ -659,8 +659,8 @@ main() {
   verifica_instalacao_existente
   TEM_INSTALACAO=$?
   
-  if [ "$TEM_INSTALACAO" -eq 1 ]; then
-    # EXISTE instalação
+  if [ "$TEM_INSTALACAO" -eq 0 ]; then
+    # EXISTE instalação (return 0 = sucesso)
     print_success "Instalação existente detectada"
     
     # Buscar versão mais recente
@@ -684,7 +684,7 @@ main() {
       exit 0
     fi
   else
-    # NÃO existe instalação
+    # NÃO existe instalação (return não-zero = erro/sem instalação)
     print_warning "Nenhuma instalação detectada em: $APP_DIR"
     print_warning ""
     print_warning "ATENÇÃO: Isso instalará uma versão FRESH do Controle Financeiro."
