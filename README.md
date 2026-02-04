@@ -2,7 +2,7 @@
 
 > Sistema de Controle Financeiro Multi-tenant com Dashboard, Relatórios e Gestão de Usuários
 
-[![Release](https://img.shields.io/badge/release-v1.0.0-blue)](https://github.com/rafaelfmuniz/app-financeiro/releases/tag/v1.0.0)
+[![Release](https://img.shields.io/badge/release-v1.1.0-blue)](https://github.com/rafaelfmuniz/app-financeiro/releases/tag/v1.1.0)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18+-blue)](https://react.dev/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue)](https://www.postgresql.org/)
@@ -159,23 +159,41 @@ O **Controle Financeiro** é uma aplicação web moderna para gestão financeira
 
 ## 📦 Instalação
 
-### 🚀 Instalação Automatizada (Ubuntu/Debian) - Última Release
+### 🚀 Instalação Automatizada (Ubuntu/Debian)
 
-**Instalador inteligente (detecta automaticamente a última release):**
+**Instalador inteligente com menu interativo:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
 ```
 
-**Instalar versão específica (ex: v1.0.0):**
+**Atualização automática (não-interativa):**
 ```bash
-RELEASE_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash -s -- --update
+```
+
+**Opções disponíveis:**
+```bash
+# Instalação limpa
+sudo bash install.sh --install
+
+# Atualização (mantém dados)
+sudo bash install.sh --update
+
+# Reinstalação (remove tudo)
+sudo bash install.sh --reinstall
+
+# Desinstalação
+sudo bash install.sh --uninstall
 ```
 
 O instalador irá:
-- Instalar Node.js, PostgreSQL e dependências
-- Criar banco de dados e usuário dedicado
-- Configurar serviço systemd
-- Iniciar a aplicação automaticamente
+- ✅ Detectar instalações existentes
+- ✅ Perguntar sobre backup antes de alterações
+- ✅ Instalar Node.js, PostgreSQL e dependências
+- ✅ Criar banco de dados e usuário dedicado
+- ✅ Configurar serviço systemd
+- ✅ Compilar frontend automaticamente
+- ✅ Iniciar a aplicação
 
 ### Instalação Manual
 
@@ -374,6 +392,35 @@ sudo journalctl -u controle-financeiro -f
 
 ---
 
+## 🔒 Segurança
+
+### Práticas Implementadas
+
+- **Senhas**: Hash com bcrypt (10 salts)
+- **JWT**: Tokens com expiração curta (15min access, 30min refresh)
+- **SQL Injection**: Proteção via prepared statements
+- **Brute Force**: Bloqueio após tentativas de login
+- **Dados Sensíveis**: Nunca commitados no repositório
+- **Variáveis de Ambiente**: Usar `.env` (nunca commitar)
+
+### Arquivos Sensíveis (não commitar)
+
+```
+backend/.env              # Configurações e segredos
+frontend/dist/           # Build do frontend (gerado automaticamente)
+*.log                    # Arquivos de log
+node_modules/            # Dependências
+```
+
+### Segurança no Deploy
+
+- O instalador cria usuário dedicado `finance`
+- Serviço roda com privilégios mínimos
+- Backups automáticos antes de alterações
+- Credenciais salvas em `/root/.financeiro-credentials`
+
+---
+
 ## 🔧 Variáveis de Ambiente
 
 ### Backend (.env)
@@ -551,5 +598,5 @@ Para dúvidas ou suporte, consulte:
 
 ---
 
-**Last Update:** 2026-01-31  
-**Version:** 1.0.0
+**Last Update:** 2026-02-04  
+**Version:** 1.1.0
