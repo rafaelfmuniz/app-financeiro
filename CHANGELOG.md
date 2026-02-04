@@ -14,15 +14,13 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/
 - Endpoint `POST /api/auth/logout` para encerrar sessões
 - Interceptor de response automático para refresh de tokens
 - Toast de alerta quando sessão expira
-- Callback de sessão expirada no frontend
-- Constantes de expiração configuráveis (JWT_ACCESS_EXPIRATION, JWT_REFRESH_EXPIRATION)
 - Índices otimizados para refresh_tokens (token_hash, expires_at, user_id)
 - Rotação automática de refresh tokens (rotação por uso)
 - Limpeza automática de tokens expirados
 
 ### Modificado
 - Expiração do access token reduzida de 8h para 15 minutos
-- Sessão máxima reduzida para 30 minutos (refresh token)
+- Sessão máxima reduzida para 30 minutos (padrão enterprise)
 - Fluxo de autenticação para usar access token curto + refresh token médio
 - Função `handleAuth` para salvar refresh token no localStorage
 - Sistema de logout centralizado em `api.js`
@@ -37,6 +35,14 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/
 - Armazenamento seguro de refresh tokens no banco com hash SHA-256
 - Invalidação de refresh tokens ao fazer logout
 - Proteção CSRF com cookies httpOnly (preparado para implementação futura)
+
+### Instalação
+- Instalador totalmente automatizado (zero perguntas ao usuário)
+- Auto-geração de credenciais (banco de dados, admin, JWT secrets)
+- Auto-criação de todas as tabelas do banco (migrations)
+- Auto-build do frontend
+- Auto-configuração de serviço systemd
+- Credenciais salvas em arquivo seguro
 
 ### Corrigido
 - Sessões que ficavam abertas indefinamente após fechar navegador
