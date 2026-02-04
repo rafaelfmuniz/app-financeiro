@@ -7,7 +7,7 @@ This release implements a modern authentication system with refresh tokens, addr
 - **Problem**: Sessions remained open indefinitely (8 hours), causing security risks
 - **Problem**: Closing and reopening browser showed logged-in state but with no visible data
 - **Problem**: No automatic token renewal, forcing users to re-login
-- **Solution**: Short access tokens (15min) + long refresh tokens (7 days) with automatic renewal
+- **Solution**: Short access tokens (15min) + refresh tokens (30min) with automatic renewal
 
 ---
 
@@ -15,9 +15,10 @@ This release implements a modern authentication system with refresh tokens, addr
 
 ### Refresh Token System
 - **Access Token**: 15-minute expiration (reduced from 8 hours)
-- **Refresh Token**: 7-day expiration
+- **Refresh Token**: 30-minute expiration (standard enterprise/bigtech security)
 - **Automatic Token Rotation**: New refresh token issued on each refresh
-- **Seamless User Experience**: Tokens refresh transparently without user action
+- **Seamless User Experience**: Tokens refresh transparently while user is active
+- **Session Management**: Maximum session time of 30 minutes after login
 
 ### Backend Changes
 - New table `refresh_tokens` in database
@@ -45,10 +46,16 @@ Add to your `.env` file:
 # JWT Configuration (v1.1.0+)
 JWT_REFRESH_SECRET=your-secret-key-minimum-32-characters
 JWT_ACCESS_EXPIRATION=15m
-JWT_REFRESH_EXPIRATION=7d
+JWT_REFRESH_EXPIRATION=30m
 ```
 
 **Note**: If not provided, defaults will be used. For production, set `JWT_REFRESH_SECRET` with a strong random value.
+
+**Session Behavior (v1.1.0)**:
+- **Access Token**: 15 minutes - Used for API requests
+- **Refresh Token**: 30 minutes - Maximum session duration
+- **When Active**: Tokens refresh automatically, session extends
+- **After 30 Minutes**: User must login again (standard enterprise security)
 
 ---
 
@@ -56,7 +63,7 @@ JWT_REFRESH_EXPIRATION=7d
 
 ### For New Installations
 
-Use the latest installer:
+Use latest installer:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
@@ -76,7 +83,7 @@ This script will:
 3. ✅ Update code from Git
 4. ✅ Add missing environment variables
 5. ✅ Run database migrations
-6. ✅ Restart the service
+6. ✅ Restart service
 7. ✅ Verify health check
 
 **All data is preserved! No information will be lost.**
@@ -102,7 +109,7 @@ If you prefer manual steps:
    # Add these lines to backend/.env
    JWT_REFRESH_SECRET=$(openssl rand -hex 32)
    JWT_ACCESS_EXPIRATION=15m
-   JWT_REFRESH_EXPIRATION=7d
+   JWT_REFRESH_EXPIRATION=30m
    ```
 
 4. **Run database migration**:
@@ -126,10 +133,11 @@ If you prefer manual steps:
 ## 🔒 Security Improvements
 
 1. **Short Access Tokens**: Reduced attack window from 8 hours to 15 minutes
-2. **Refresh Token Rotation**: New tokens issued on each refresh, preventing reuse
-3. **Token Hashing**: Refresh tokens stored with SHA-256 hash in database
-4. **Automatic Cleanup**: Expired tokens removed automatically
-5. **Secure Logout**: Refresh tokens invalidated on logout
+2. **30-Minute Session**: Standard enterprise security, prevents session hijacking
+3. **Refresh Token Rotation**: New tokens issued on each refresh, preventing reuse
+4. **Token Hashing**: Refresh tokens stored with SHA-256 hash in database
+5. **Automatic Cleanup**: Expired tokens removed automatically
+6. **Secure Logout**: Refresh tokens invalidated on logout
 
 ---
 
@@ -164,10 +172,11 @@ Verify your installation works correctly:
 5. **Verify Web Interface**:
    - Open your browser
    - Login normally
-   - Close and reopen browser
-   - Verify session is maintained for 7 days
+   - Close and reopen browser (within 30 minutes)
+   - Verify session is maintained
    - Wait 15 minutes (access token expires)
    - Continue using app (should refresh automatically)
+   - After 30 minutes total, should require login
 
 ---
 
@@ -181,7 +190,7 @@ If you need to rollback to v1.0.0:
 sudo bash scripts/deploy/rollback.sh
 ```
 
-Follow the prompts to select the backup to restore.
+Follow prompts to select backup to restore.
 
 ### Manual Rollback
 
@@ -243,14 +252,14 @@ None reported in this release.
 **None.** This release is fully backward compatible.
 
 - Existing sessions will work until they expire (8 hours)
-- After update, new sessions will use the refresh token system
-- Users can continue using the app seamlessly
+- After update, new sessions will use refresh token system
+- Users can continue using app seamlessly
 
 ---
 
 ## 🙏 Credits
 
-This release addresses user-reported authentication issues and implements industry-standard refresh token patterns.
+This release addresses user-reported authentication issues and implements industry-standard refresh token patterns with enterprise security practices.
 
 ---
 
@@ -264,3 +273,4 @@ For issues or questions:
 
 **Release Date**: February 3, 2026
 **Version**: 1.1.0
+

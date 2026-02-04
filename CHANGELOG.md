@@ -22,16 +22,18 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/
 
 ### Modificado
 - Expiração do access token reduzida de 8h para 15 minutos
-- Fluxo de autenticação para usar access token curto + refresh token longo
+- Sessão máxima reduzida para 30 minutos (refresh token)
+- Fluxo de autenticação para usar access token curto + refresh token médio
 - Função `handleAuth` para salvar refresh token no localStorage
 - Sistema de logout centralizado em `api.js`
 - Verificação inicial de token ao carregar página
-- Timer de inatividade para considerar refresh tokens
+- Timer de inatividade para considerar refresh token
 - Atualização de variáveis de ambiente em arquivos .env.sample
 
 ### Segurança
 - Implementação de refresh token com rotação automática
 - Tokens de acesso com expiração curta (15min) reduzindo janela de ataque
+- Sessão limitada a 30 minutos (padrão enterprise/bigtech)
 - Armazenamento seguro de refresh tokens no banco com hash SHA-256
 - Invalidação de refresh tokens ao fazer logout
 - Proteção CSRF com cookies httpOnly (preparado para implementação futura)

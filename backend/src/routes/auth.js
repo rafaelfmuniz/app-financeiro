@@ -13,7 +13,7 @@ const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_BLOCK_MS = 15 * 60 * 1000;
 const TEMP_PASSWORD_MINUTES = 10;
 const ACCESS_TOKEN_EXPIRATION = '15m';
-const REFRESH_TOKEN_EXPIRATION_DAYS = 7;
+const REFRESH_TOKEN_EXPIRATION_MINUTES = 30;
 const loginAttempts = new Map();
 
 const isValidEmail = (value) => /.+@.+\..+/.test(value);
@@ -56,7 +56,7 @@ const clearAttempts = (key) => {
 const generateRefreshToken = async (userId) => {
   const refreshToken = crypto.randomBytes(64).toString('hex');
   const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRATION_MINUTES * 60 * 1000);
   await pool.query(
     'INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
     [userId, refreshTokenHash, expiresAt]

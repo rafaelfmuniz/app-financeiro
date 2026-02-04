@@ -152,17 +152,18 @@ const result = await query(
 
 ### Sistema de Refresh Token
 
-O sistema usa **access tokens curtos** (15 minutos) e **refresh tokens longos** (7 dias):
+O sistema usa **access tokens curtos** (15 minutos) e **refresh tokens médios** (30 minutos):
 
 ```javascript
 // Login retorna:
 {
   token: "access_token_jwt_15min",
-  refreshToken: "refresh_token_hex_7dias"
+  refreshToken: "refresh_token_hex_30min"
 }
 
 // Frontend usa access token nas requisições
 // Quando access token expira (401), usa refresh token para obter novo access token
+// Sessão total máxima: 30 minutos (padrão enterprise/bigtech)
 ```
 
 ### Rotas de Autenticação
@@ -216,7 +217,7 @@ headers: {
 // Gerar refresh token
 const refreshToken = crypto.randomBytes(64).toString('hex');
 const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
 await pool.query(
   'INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
   [userId, tokenHash, expiresAt]

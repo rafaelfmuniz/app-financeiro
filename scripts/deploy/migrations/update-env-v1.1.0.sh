@@ -33,7 +33,7 @@ fi
 
 # Add JWT_REFRESH_EXPIRATION if not present
 if ! grep -q "^JWT_REFRESH_EXPIRATION=" "$ENV_FILE"; then
-  echo "JWT_REFRESH_EXPIRATION=7d" >> "$ENV_FILE"
+  echo "JWT_REFRESH_EXPIRATION=30m" >> "$ENV_FILE"
   echo "Added: JWT_REFRESH_EXPIRATION"
 else
   echo "JWT_REFRESH_EXPIRATION already exists, skipping"
