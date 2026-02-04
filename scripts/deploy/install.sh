@@ -11,7 +11,7 @@ set -euo pipefail
 # ============================================
 # CONFIGURAÇÕES
 # ============================================
-readonly SCRIPT_VERSION="1.2.3"
+readonly SCRIPT_VERSION="1.3.0"
 readonly INSTALL_DIR="/opt/controle-financeiro"
 readonly SERVICE_NAME="controle-financeiro"
 readonly REPO_URL="https://github.com/rafaelfmuniz/app-financeiro.git"
@@ -48,47 +48,6 @@ setup_colors() {
 }
 
 setup_colors
-
-# ============================================
-# DETECÇÃO DE VERSÃO
-# ============================================
-get_latest_version() {
-    local api_url="https://api.github.com/repos/rafaelfmuniz/app-financeiro/releases/latest"
-    local version=""
-    
-    local response
-    response=$(curl -s --max-time 5 "$api_url" 2>/dev/null) || {
-        log_warning "Falha ao buscar versão mais recente (timeout ou erro de conexão)"
-        echo "$SCRIPT_VERSION"
-        return
-    }
-    
-    if [[ -z "$response" ]] || [[ "$response" == "null" ]]; then
-        log_warning "Resposta vazia da API do GitHub"
-        echo "$SCRIPT_VERSION"
-        return
-    fi
-    
-    version=$(echo "$response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4) || true
-    
-    if [[ -z "$version" ]]; then
-        log_warning "Não foi possível extrair versão da resposta da API"
-        echo "$SCRIPT_VERSION"
-        return
-    fi
-    
-    if [[ ! "$version" =~ ^v ]]; then
-        version="v$version"
-    fi
-    
-    if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-        log_warning "Formato de versão inválido: $version"
-        echo "v$SCRIPT_VERSION"
-        return
-    fi
-    
-    echo "$version"
-}
 
 # ============================================
 # FUNÇÕES DE LOG
@@ -176,7 +135,7 @@ check_existing_installation() {
         ((has_install++))
     fi
     
-    if [[ -d "$INSTALL_DIR/backend" ]] && [[ -f "$INSTALL_DIR/backend/src/server.js" ]]; then
+    if [[ -d "$INSTALL_DIR/backend/src" ]] && [[ -f "$INSTALL_DIR/backend/src/server.js" ]]; then
         ((has_install++))
     fi
     
@@ -566,10 +525,10 @@ install_npm_dependencies() {
         exit 1
     }
     
-    log_info "Copiando frontend para backend..."
+    log_info "Copiando frontend para backend/src/frontend-dist..."
     rm -rf "$INSTALL_DIR/backend/src/frontend-dist"
     mkdir -p "$INSTALL_DIR/backend/src/frontend-dist"
-    cp -r "$INSTALL_DIR/frontend/dist" "$INSTALL_DIR/backend/src/frontend-dist"
+    cp -r "$INSTALL_DIR/frontend/dist/"* "$INSTALL_DIR/backend/src/frontend-dist/"
     
     log_success "Dependências instaladas e aplicação compilada"
 }
@@ -721,6 +680,43 @@ cleanup() {
 }
 
 # ============================================
+# SHOW FINAL SUMMARY
+# ============================================
+show_final_summary() {
+    local operation=$1
+    
+    echo ""
+    echo "========================================"
+    echo "  RESUMO DA OPERAÇÃO"
+    echo "========================================"
+    echo ""
+    
+    if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+        echo "  [✓] Serviço Controle Financeiro ativo"
+    else
+        echo "  [✗] Serviço Controle Financeiro (falha)"
+    fi
+    
+    local ip_address
+    ip_address=$(hostname -I | awk '{print $1}')
+    
+    echo ""
+    echo "Acesso: http://${ip_address}:3000"
+    echo ""
+    
+    if [[ "$operation" == "install" ]]; then
+        echo "Credenciais:"
+        echo "  Email: ${ADMIN_EMAIL}"
+        echo "  Senha: ${ADMIN_PASSWORD}"
+        echo ""
+        echo "! Mude a senha após o primeiro login!"
+    fi
+    
+    echo "========================================"
+    echo ""
+}
+
+# ============================================
 # INSTALAÇÃO COMPLETA
 # ============================================
 install_new() {
@@ -808,22 +804,6 @@ update() {
     
     # Verificar se é repositório git
     if [[ ! -d "$INSTALL_DIR/.git" ]]; then
-        log_warning "Instalação não é um repositório git"
-        echo ""
-        echo "Sua instalação não foi feita via git clone."
-        echo "Opções:"
-        echo "  1) Baixar nova versão e atualizar (mantém dados)"
-        echo "  2) Cancelar"
-        echo ""
-        local choice
-        choice=$(read_tty "Escolha uma opção (1-2): ")
-        
-        if [[ "$choice" != "1" ]]; then
-            log_info "Atualização cancelada"
-            exit 0
-        fi
-        
-        log_info "Atualizando instalação não-git..."
         create_backup "pre-update"
         ROLLBACK_POINT="$BACKUP_DIR"
         
@@ -850,35 +830,40 @@ update() {
             exit 1
         }
         
-        log_info "Atualizando arquivos..."
-        
-        # Criar diretórios se não existirem
-        mkdir -p "$INSTALL_DIR/backend"
-        mkdir -p "$INSTALL_DIR/frontend"
-        mkdir -p "$INSTALL_DIR/backend/src"
-        
-        # Remover arquivos antigos (preservando node_modules e .env)
-        find "$INSTALL_DIR/backend" -mindepth 1 ! -name "node_modules" ! -name ".env" ! -name "frontend-dist" -exec rm -rf {} + 2>/dev/null || true
-        find "$INSTALL_DIR/frontend" -mindepth 1 ! -name "node_modules" ! -name "dist" -exec rm -rf {} + 2>/dev/null || true
-        
-        # Copiar novos arquivos do backend
-        cp -r "$TEMP_DIR/backend/"* "$INSTALL_DIR/backend/" 2>/dev/null || true
+        log_info "Atualizando arquivos do backend..."
+        # Copiar backend/src/*
+        rm -rf "$INSTALL_DIR/backend/src"
         cp -r "$TEMP_DIR/backend/src/"* "$INSTALL_DIR/backend/src/" 2>/dev/null || true
         
-        # Copiar frontend-dist para dentro de src (onde o servidor espera)
+        # Copiar backend/*.js, *.json
+        cp "$TEMP_DIR/backend/"*.js "$INSTALL_DIR/backend/" 2>/dev/null || true
+        cp "$TEMP_DIR/backend/"*.json "$INSTALL_DIR/backend/" 2>/dev/null || true
+        
+        log_info "Atualizando arquivos do frontend..."
+        cd "$INSTALL_DIR/frontend" || exit 1
+        npm install --no-audit --no-fund --silent || {
+            log_error "Falha ao atualizar dependências (frontend)"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
+        }
+        
+        npm run build || {
+            log_error "Falha no build do frontend"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
+        }
+        
+        log_info "Copiando frontend para backend/src/frontend-dist..."
         rm -rf "$INSTALL_DIR/backend/src/frontend-dist"
         mkdir -p "$INSTALL_DIR/backend/src/frontend-dist"
-        cp -r "$TEMP_DIR/backend/frontend-dist/"* "$INSTALL_DIR/backend/src/frontend-dist/" 2>/dev/null || true
-        
-        # Copiar novos arquivos do frontend
-        cp -r "$TEMP_DIR/frontend/"* "$INSTALL_DIR/frontend/" 2>/dev/null || true
+        cp -r "$INSTALL_DIR/frontend/dist/"* "$INSTALL_DIR/backend/src/frontend-dist/"
         
         log_info "Restaurando configurações..."
         cp /tmp/financeiro-env-backup "$INSTALL_DIR/backend/.env" 2>/dev/null || true
         
-        rm -rf "$TEMP_DIR"
-        
         log_success "Código atualizado"
+        
+        rm -rf "$TEMP_DIR"
     else
         # Instalação via git - usar git fetch/reset
         create_backup "pre-update"
@@ -915,35 +900,36 @@ update() {
         
         log_info "Restaurando configurações..."
         cp /tmp/financeiro-env-backup backend/.env 2>/dev/null || true
+        
+        log_info "Atualizando dependências..."
+        
+        cd "$INSTALL_DIR/backend" || exit 1
+        npm install --no-audit --no-fund --silent || {
+            log_error "Falha ao atualizar dependências (backend)"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
+        }
+        
+        cd "$INSTALL_DIR/frontend" || exit 1
+        npm install --no-audit --no-fund --silent || {
+            log_error "Falha ao atualizar dependências (frontend)"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
+        }
+        
+        npm run build || {
+            log_error "Falha no build do frontend"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
+        }
+        
+        log_info "Copiando frontend para backend/src/frontend-dist..."
+        rm -rf "$INSTALL_DIR/backend/src/frontend-dist"
+        mkdir -p "$INSTALL_DIR/backend/src/frontend-dist"
+        cp -r "$INSTALL_DIR/frontend/dist/"* "$INSTALL_DIR/backend/src/frontend-dist/"
+        
+        log_success "Dependências atualizadas"
     fi
-    
-    log_info "Atualizando dependências..."
-    
-    cd "$INSTALL_DIR/backend" || exit 1
-    npm install --no-audit --no-fund --silent || {
-        log_error "Falha ao atualizar dependências (backend)"
-        perform_rollback "$ROLLBACK_POINT"
-        exit 1
-    }
-    
-    cd "$INSTALL_DIR/frontend" || exit 1
-    npm install --no-audit --no-fund --silent || {
-        log_error "Falha ao atualizar dependências (frontend)"
-        perform_rollback "$ROLLBACK_POINT"
-        exit 1
-    }
-    
-    npm run build || {
-        log_error "Falha no build do frontend"
-        perform_rollback "$ROLLBACK_POINT"
-        exit 1
-    }
-    
-    rm -rf "$INSTALL_DIR/backend/src/frontend-dist"
-    mkdir -p "$INSTALL_DIR/backend/src/frontend-dist"
-    cp -r "$INSTALL_DIR/frontend/dist" "$INSTALL_DIR/backend/src/frontend-dist"
-    
-    log_success "Dependências atualizadas"
     
     log_info "Reiniciando serviço..."
     systemctl start "$SERVICE_NAME" || {
@@ -1011,43 +997,6 @@ EOF
 }
 
 # ============================================
-# SHOW FINAL SUMMARY
-# ============================================
-show_final_summary() {
-    local operation=$1
-    
-    echo ""
-    echo "========================================"
-    echo "  RESUMO DA OPERAÇÃO"
-    echo "========================================"
-    echo ""
-    
-    if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-        echo "  [✓] Serviço Controle Financeiro ativo"
-    else
-        echo "  [✗] Serviço Controle Financeiro (falha)"
-    fi
-    
-    local ip_address
-    ip_address=$(hostname -I | awk '{print $1}')
-    
-    echo ""
-    echo "Acesso: http://${ip_address}:3000"
-    echo ""
-    
-    if [[ "$operation" == "install" ]]; then
-        echo "Credenciais:"
-        echo "  Email: ${ADMIN_EMAIL}"
-        echo "  Senha: ${ADMIN_PASSWORD}"
-        echo ""
-        echo "! Mude a senha após o primeiro login!"
-    fi
-    
-    echo "========================================"
-    echo ""
-}
-
-# ============================================
 # SHOW MENU
 # ============================================
 show_menu() {
@@ -1078,6 +1027,44 @@ show_menu() {
     echo "  4) Desinstalar (remove tudo)"
     echo "  5) Sair"
     echo ""
+}
+
+get_latest_version() {
+    local api_url="https://api.github.com/repos/rafaelfmuniz/app-financeiro/releases/latest"
+    local version=""
+    
+    local response
+    response=$(curl -s --max-time 5 "$api_url" 2>/dev/null) || {
+        log_warning "Falha ao buscar versão mais recente (timeout ou erro de conexão)"
+        echo "$SCRIPT_VERSION"
+        return
+    }
+    
+    if [[ -z "$response" ]] || [[ "$response" == "null" ]]; then
+        log_warning "Resposta vazia da API do GitHub"
+        echo "$SCRIPT_VERSION"
+        return
+    fi
+    
+    version=$(echo "$response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4) || true
+    
+    if [[ -z "$version" ]]; then
+        log_warning "Não foi possível extrair versão da resposta da API"
+        echo "$SCRIPT_VERSION"
+        return
+    fi
+    
+    if [[ ! "$version" =~ ^v ]]; then
+        version="v$version"
+    fi
+    
+    if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+        log_warning "Formato de versão inválido: $version"
+        echo "v$SCRIPT_VERSION"
+        return
+    fi
+    
+    echo "$version"
 }
 
 # ============================================
