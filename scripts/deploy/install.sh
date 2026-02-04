@@ -805,40 +805,101 @@ update() {
         exit 1
     fi
     
-    create_backup "pre-update"
-    ROLLBACK_POINT="$BACKUP_DIR"
-    
-    cd "$INSTALL_DIR" || exit 1
-    
-    log_info "Parando serviço..."
-    if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-        timeout 10 systemctl stop "$SERVICE_NAME" 2>/dev/null || {
-            log_warning "Serviço não parou em 10s, forçando..."
-            systemctl kill "$SERVICE_NAME" 2>/dev/null || true
-            sleep 1
+    # Verificar se é repositório git
+    if [[ ! -d "$INSTALL_DIR/.git" ]]; then
+        log_warning "Instalação não é um repositório git"
+        echo ""
+        echo "Sua instalação não foi feita via git clone."
+        echo "Opções:"
+        echo "  1) Baixar nova versão e atualizar (mantém dados)"
+        echo "  2) Cancelar"
+        echo ""
+        local choice
+        choice=$(read_tty "Escolha uma opção (1-2): ")
+        
+        if [[ "$choice" != "1" ]]; then
+            log_info "Atualização cancelada"
+            exit 0
+        fi
+        
+        log_info "Atualizando instalação não-git..."
+        create_backup "pre-update"
+        ROLLBACK_POINT="$BACKUP_DIR"
+        
+        cd "$INSTALL_DIR" || exit 1
+        
+        log_info "Parando serviço..."
+        if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+            timeout 10 systemctl stop "$SERVICE_NAME" 2>/dev/null || {
+                log_warning "Serviço não parou em 10s, forçando..."
+                systemctl kill "$SERVICE_NAME" 2>/dev/null || true
+                sleep 1
+            }
+        fi
+        
+        log_info "Salvando configurações..."
+        cp backend/.env /tmp/financeiro-env-backup 2>/dev/null || true
+        
+        log_info "Baixando nova versão..."
+        mkdir -p "$TEMP_DIR"
+        git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$TEMP_DIR" || {
+            log_error "Falha ao clonar repositório"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
         }
+        
+        log_info "Atualizando arquivos..."
+        # Remover arquivos antigos do backend
+        find "$INSTALL_DIR/backend" -mindepth 1 ! -name "node_modules" ! -name ".env" -exec rm -rf {} + 2>/dev/null || true
+        find "$INSTALL_DIR/frontend" -mindepth 1 ! -name "node_modules" ! -name "dist" -exec rm -rf {} + 2>/dev/null || true
+        
+        # Copiar novos arquivos
+        cp -r "$TEMP_DIR/backend/"* "$INSTALL_DIR/backend/"
+        cp -r "$TEMP_DIR/frontend/"* "$INSTALL_DIR/frontend/"
+        
+        log_info "Restaurando configurações..."
+        cp /tmp/financeiro-env-backup "$INSTALL_DIR/backend/.env" 2>/dev/null || true
+        
+        rm -rf "$TEMP_DIR"
+        
+        log_success "Código atualizado"
+    else
+        # Instalação via git - usar git fetch/reset
+        create_backup "pre-update"
+        ROLLBACK_POINT="$BACKUP_DIR"
+        
+        cd "$INSTALL_DIR" || exit 1
+        
+        log_info "Parando serviço..."
+        if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+            timeout 10 systemctl stop "$SERVICE_NAME" 2>/dev/null || {
+                log_warning "Serviço não parou em 10s, forçando..."
+                systemctl kill "$SERVICE_NAME" 2>/dev/null || true
+                sleep 1
+            }
+        fi
+        
+        log_info "Salvando configurações..."
+        cp backend/.env /tmp/financeiro-env-backup 2>/dev/null || true
+        
+        log_info "Atualizando código via git..."
+        git fetch origin || {
+            log_error "Falha ao buscar atualizações"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
+        }
+        
+        git reset --hard "origin/${REPO_BRANCH}" || {
+            log_error "Falha ao atualizar código"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
+        }
+        
+        log_success "Código atualizado para a versão mais recente"
+        
+        log_info "Restaurando configurações..."
+        cp /tmp/financeiro-env-backup backend/.env 2>/dev/null || true
     fi
-    
-    log_info "Salvando configurações..."
-    cp backend/.env /tmp/financeiro-env-backup 2>/dev/null || true
-    
-    log_info "Atualizando código..."
-    git fetch origin || {
-        log_error "Falha ao buscar atualizações"
-        perform_rollback "$ROLLBACK_POINT"
-        exit 1
-    }
-    
-    git reset --hard "origin/${REPO_BRANCH}" || {
-        log_error "Falha ao atualizar código"
-        perform_rollback "$ROLLBACK_POINT"
-        exit 1
-    }
-    
-    log_success "Código atualizado para a versão mais recente"
-    
-    log_info "Restaurando configurações..."
-    cp /tmp/financeiro-env-backup backend/.env 2>/dev/null || true
     
     log_info "Atualizando dependências..."
     
