@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Controle Financeiro - Instalador v1.6.0
+# Controle Financeiro - Instalador v1.7.0
 # Sistema de Gestão Financeira Multi-tenant
 #
 # Uso: curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
@@ -11,7 +11,7 @@ set -euo pipefail
 # ============================================
 # CONFIGURAÇÕES
 # ============================================
-readonly SCRIPT_VERSION="1.6.0"
+readonly SCRIPT_VERSION="1.7.0"
 readonly INSTALL_DIR="/opt/controle-financeiro"
 readonly SERVICE_NAME="controle-financeiro"
 readonly REPO_URL="https://github.com/rafaelfmuniz/app-financeiro.git"
@@ -219,6 +219,31 @@ validate_system() {
 # BACKUP E ROLLBACK
 # ============================================
 create_backup() {
+    local backup_type="${1:-atualização}"
+    
+    echo ""
+    echo "========================================"
+    echo "  BACKUP DE SEGURANÇA"
+    echo "========================================"
+    echo ""
+    echo "Antes de $backup_type, é recomendável"
+    echo "fazer um backup de segurança."
+    echo ""
+    echo "O backup incluirá:"
+    echo "  - Banco de dados completo"
+    echo "  - Arquivos da aplicação"
+    echo "  - Configurações (.env)"
+    echo ""
+    
+    local confirm
+    confirm=$(read_tty "Deseja criar backup de segurança? (S/n): ")
+    
+    if [[ "$confirm" =~ ^[Nn]$ ]]; then
+        log_warning "Backup ignorado pelo usuário"
+        BACKUP_DIR=""
+        return
+    fi
+    
     log_info "Criando backup..."
     
     mkdir -p "$BACKUP_BASE_DIR"
@@ -240,7 +265,7 @@ create_backup() {
             PGPASSWORD="$DB_PASS" pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>/dev/null || {
                 log_warning "Não foi possível fazer backup do banco de dados"
             }
-            log_success "Backup do banco de dados: $BACKUP_DIR/database.sql"
+            log_success "Backup do banco: $BACKUP_DIR/database.sql"
         else
             log_warning "Arquivo .env incompleto, pulando backup do banco"
         fi
@@ -260,7 +285,22 @@ create_backup() {
         log_success "Backup do frontend: $BACKUP_DIR/frontend"
     fi
     
-    log_success "Backup completo: $BACKUP_DIR"
+    echo ""
+    echo "========================================"
+    echo "  BACKUP CONCLUÍDO"
+    echo "========================================"
+    echo ""
+    echo "Local: $BACKUP_DIR"
+    echo ""
+    echo "Arquivos:"
+    [[ -f "$BACKUP_DIR/database.sql" ]] && echo "  ✓ database.sql"
+    [[ -d "$BACKUP_DIR/backend" ]] && echo "  ✓ backend/"
+    [[ -d "$BACKUP_DIR/frontend" ]] && echo "  ✓ frontend/"
+    echo ""
+    echo "Para restaurar este backup:"
+    echo "  Opção 5 no menu principal"
+    echo "========================================"
+    echo ""
     
     rotate_backups
 }
@@ -704,7 +744,7 @@ update() {
         exit 1
     fi
     
-    create_backup
+    create_backup "atualização"
     ROLLBACK_POINT="$BACKUP_DIR"
     
     cd "$INSTALL_DIR" || exit 1
