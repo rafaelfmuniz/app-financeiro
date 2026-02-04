@@ -5,29 +5,15 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/v2.0.0.html).
 
-## [1.2.0] - 2026-02-04 (Instalador v1.7.0)
-
-### Adicionado
-- Instalador com argumentos de linha de comando (--install, --update, --reinstall, --uninstall)
-- Modo não-interativo para automação via CI/CD
-- Confirmação interativa antes de criar backup
-- Feedback claro sobre local e arquivos do backup
-- Documentação de segurança no README
-
-### Modificado
-- README.md atualizado com instruções de uso do instalador
-- Seção de segurança adicionada ao README
-- Versão do frontend atualizada para 1.1.0
-
-### Segurança
-- Verificação de arquivos sensíveis antes de commits
-- .env.example atualizado com exemplos seguros
-- Documentação sobre práticas de segurança
-
-## [1.1.0] - 2026-02-03 (Instalador Profissional)
+## [1.1.0] - 2026-02-04 (Versão Estável)
 
 ### Adicionado
 - Sistema de refresh token para autenticação
+- **Instalador v1.7.0** com argumentos de linha de comando (--install, --update, --reinstall, --uninstall)
+- Modo não-interativo para automação via CI/CD
+- Confirmação interativa antes de criar backup
+- Feedback claro sobre local e arquivos do backup
+- Documentação completa de segurança no README
 - Tabela `refresh_tokens` no banco de dados
 - Endpoint `POST /api/auth/refresh` para renovar tokens
 - Endpoint `POST /api/auth/logout` para encerrar sessões
@@ -38,6 +24,9 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/
 - Limpeza automática de tokens expirados
 
 ### Modificado
+- README.md atualizado com instruções detalhadas do instalador
+- Seção de segurança adicionada ao README
+- Versão do frontend atualizada para 1.1.0
 - Expiração do access token reduzida de 8h para 15 minutos
 - Sessão máxima reduzida para 30 minutos (padrão enterprise)
 - Fluxo de autenticação para usar access token curto + refresh token médio
@@ -59,6 +48,9 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/
 - Formatação profissional com caixas ASCII artísticas
 
 ### Segurança
+- Verificação de arquivos sensíveis antes de commits
+- .env.example atualizado com exemplos seguros
+- Documentação sobre práticas de segurança
 - Implementação de refresh token com rotação automática
 - Tokens de acesso com expiração curta (15min) reduzindo janela de ataque
 - Sessão limitada a 30 minutos (padrão enterprise/bigtech)
