@@ -841,6 +841,7 @@ update() {
         cp backend/.env /tmp/financeiro-env-backup 2>/dev/null || true
         
         log_info "Baixando nova versão..."
+        rm -rf "$TEMP_DIR"
         mkdir -p "$TEMP_DIR"
         git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$TEMP_DIR" || {
             log_error "Falha ao clonar repositório"
