@@ -11,7 +11,7 @@ set -euo pipefail
 # ============================================
 # CONFIGURAÇÕES
 # ============================================
-readonly SCRIPT_VERSION="1.2.2"
+readonly SCRIPT_VERSION="1.2.3"
 readonly INSTALL_DIR="/opt/controle-financeiro"
 readonly SERVICE_NAME="controle-financeiro"
 readonly REPO_URL="https://github.com/rafaelfmuniz/app-financeiro.git"
@@ -567,8 +567,9 @@ install_npm_dependencies() {
     }
     
     log_info "Copiando frontend para backend..."
-    rm -rf "$INSTALL_DIR/backend/frontend-dist"
-    cp -r "$INSTALL_DIR/frontend/dist" "$INSTALL_DIR/backend/frontend-dist"
+    rm -rf "$INSTALL_DIR/backend/src/frontend-dist"
+    mkdir -p "$INSTALL_DIR/backend/src/frontend-dist"
+    cp -r "$INSTALL_DIR/frontend/dist" "$INSTALL_DIR/backend/src/frontend-dist"
     
     log_success "Dependências instaladas e aplicação compilada"
 }
@@ -862,6 +863,11 @@ update() {
         
         # Copiar novos arquivos do backend
         cp -r "$TEMP_DIR/backend/"* "$INSTALL_DIR/backend/" 2>/dev/null || true
+        cp -r "$TEMP_DIR/backend/src/"* "$INSTALL_DIR/backend/src/" 2>/dev/null || true
+        
+        # Copiar frontend-dist para dentro de src (onde o servidor espera)
+        rm -rf "$INSTALL_DIR/backend/src/frontend-dist"
+        mkdir -p "$INSTALL_DIR/backend/src/frontend-dist"
         cp -r "$TEMP_DIR/backend/frontend-dist/"* "$INSTALL_DIR/backend/src/frontend-dist/" 2>/dev/null || true
         
         # Copiar novos arquivos do frontend
@@ -933,8 +939,9 @@ update() {
         exit 1
     }
     
-    rm -rf "$INSTALL_DIR/backend/frontend-dist"
-    cp -r "$INSTALL_DIR/frontend/dist" "$INSTALL_DIR/backend/frontend-dist"
+    rm -rf "$INSTALL_DIR/backend/src/frontend-dist"
+    mkdir -p "$INSTALL_DIR/backend/src/frontend-dist"
+    cp -r "$INSTALL_DIR/frontend/dist" "$INSTALL_DIR/backend/src/frontend-dist"
     
     log_success "Dependências atualizadas"
     
