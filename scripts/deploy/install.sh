@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Controle Financeiro - Installer
-# Version: 1.1.0
+# Version: 1.1.1
 # Requirements: Ubuntu 20.04+, Debian 11+
 # Usage: curl -fsSL URL | sudo bash
 #
@@ -14,7 +14,7 @@ export SHELLOPTS
 # CONFIGURAÇÃO
 ###############################################
 
-APP_VERSION="1.1.0"
+APP_VERSION="1.1.1"
 APP_USER="finance"
 APP_DIR="/opt/controle-financeiro"
 SERVICE_NAME="controle-financeiro"
@@ -184,19 +184,19 @@ busca_ultima_versao() {
 
 confirma_atualizacao() {
   printf '\n'
-  echo "═══════════════════════════════════════"
-  echo " NOVA VERSÃO DISPONÍVEL"
-  echo "═════════════════════════════════════"
+  echo "========================================"
+  echo " NOVA VERSAO DISPONIVEL"
+  echo "========================================"
   printf '\n'
-  echo "Versão instalada: $CURRENT_VERSION"
-  echo "Versão disponível: $LATEST_VERSION"
+  echo "Versao instalada: $CURRENT_VERSION"
+  echo "Versao disponivel: $LATEST_VERSION"
   printf '\n'
-  echo "⚠ Uma nova versão do Controle Financeiro está disponível."
+  echo "! Uma nova versao do Controle Financeiro esta disponivel."
   printf '\n'
-  echo "Escolha uma opção:"
+  echo "Escolha uma opcao:"
   printf '\n'
   echo "  1) ATUALIZAR para $LATEST_VERSION (recomendado)"
-  echo "  2) MANTER versão atual ($CURRENT_VERSION)"
+  echo "  2) MANTER versao atual ($CURRENT_VERSION)"
   echo "  3) CANCELAR"
   printf '\n'
   
@@ -206,22 +206,22 @@ confirma_atualizacao() {
   case "$escolha" in
     1)
       printf '\n'
-      echo "✓ Opção selecionada: Atualizar"
+      echo "[OK] Opcao selecionada: Atualizar"
       return 0
       ;;
     2)
       printf '\n'
-      echo "ℹ Opção selecionada: Manter versão atual"
+      echo "[INFO] Opcao selecionada: Manter versao atual"
       return 1
       ;;
     3)
       printf '\n'
-      echo "ℹ Instalação cancelada pelo usuário"
+      echo "[INFO] Instalacao cancelada pelo usuario"
       exit 0
       ;;
     *)
       printf '\n'
-      echo "✗ Opção inválida"
+      echo "[ERRO] Opcao invalida"
       return 2
       ;;
   esac
