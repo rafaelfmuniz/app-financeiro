@@ -2,14 +2,14 @@
 
 ## 🚀 Overview
 
-This release implements a modern authentication system with refresh tokens and provides an **enterprise all-in-one installer**:
+This release implements a modern authentication system with refresh tokens and provides a **fully automated one-line installer**:
 
 - **Problem**: Sessions remained open indefinitely (8 hours), causing security risks
 - **Problem**: Closing and reopening browser showed logged-in state but with no visible data
 - **Problem**: No automatic token renewal, forcing users to re-login
-- **Problem**: Installation was complex and required multiple steps
+- **Problem**: Installation was complex and required multiple decisions
 - **Solution**: Short access tokens (15min) + refresh tokens (30min) with automatic renewal
-- **Solution**: Interactive enterprise installer that handles everything automatically
+- **Solution**: Fully automated installer with zero user interaction
 
 ---
 
@@ -61,46 +61,67 @@ JWT_REFRESH_EXPIRATION=30m
 
 ---
 
-## 📦 Migration Instructions
+## 📦 Installation Instructions
 
-### For New Installations (Recommended - Enterprise Installer)
+### NEW: Fully Automated Installer (Recommended)
 
-**NEW: Interactive all-in-one installer**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install-enterprise.sh | sudo bash
-```
-
-**The enterprise installer will:**
-- ✅ Install all system dependencies
-- ✅ Install and configure PostgreSQL
-- ✅ Install Node.js (or upgrade if needed)
-- ✅ Prompt for database configuration
-- ✅ Create database and user
-- ✅ Generate secure secrets automatically
-- ✅ Configure application with all settings
-- ✅ Run database migrations
-- ✅ Install npm dependencies
-- ✅ Build frontend
-- ✅ Configure systemd service
-- ✅ Start application
-- ✅ Verify installation
-- ✅ Display access URLs and credentials
-- ✅ Save credentials to secure file
-
-**Features:**
-- 🎨 Colorful output with progress indicators
-- 🔧 Interactive prompts for all configuration
-- 🛡️ Error handling and validation
-- 📋 Saves credentials to secure file
-- ✅ Health check verification
-- 📝 Shows logs and management commands
-
-### Alternative: Use previous installer
+**ONE COMMAND - EVERYTHING AUTOMATED**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
 ```
+
+**That's it!** The installer automatically handles:
+- ✅ All system dependencies (PostgreSQL, Node.js, etc.)
+- ✅ Database creation and configuration
+- ✅ Database credentials generation (auto)
+- ✅ Admin account creation (auto)
+- ✅ All secrets generation (JWT, etc.)
+- ✅ Application configuration
+- ✅ Database migrations
+- ✅ npm dependencies installation
+- ✅ Frontend build
+- ✅ Systemd service setup
+- ✅ Service start and health check
+- ✅ Credentials saved to secure file
+
+**What it DOES NOT ask:**
+- ❌ Database name (auto: `finance_db`)
+- ❌ Database user (auto: `finance_user`)
+- ❌ Database password (auto-generated)
+- ❌ Admin email (auto: `admin@controle-financeiro.local`)
+- ❌ Admin password (auto-generated)
+- ❌ Admin username (auto: `admin`)
+- ❌ Tenant name (auto: `Principal`)
+- ❌ JWT secrets (auto-generated)
+- ❌ ANY decisions - fully automated!
+
+**User responsibility: ZERO** 🎉
+
+**After installation:**
+- 📋 All credentials saved to: `/opt/controle-financeiro/credentials.txt`
+- 🔗 Access URLs displayed at the end
+- 📝 Management commands shown (restart, logs, etc.)
+- 🚀 Ready to use immediately!
+
+### For Existing Installations (Upgrade to v1.1.0)
+
+#### Automatic Update (Recommended)
+
+```bash
+sudo bash scripts/deploy/update.sh
+```
+
+This script will:
+1. ✅ Backup your database
+2. ✅ Backup your .env file
+3. ✅ Update code from Git
+4. ✅ Add missing environment variables
+5. ✅ Run database migrations
+6. ✅ Restart service
+7. ✅ Verify health check
+
+**All data is preserved! No information will be lost.**
 
 ### For Existing Installations (Upgrade to v1.1.0)
 
