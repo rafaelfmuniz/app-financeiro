@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# Controle Financeiro - Instalador v1.4.0 - FIX DEFINITIVO
+# Controle Financeiro - Instalador v1.5.0
 # Sistema de Gestão Financeira Multi-tenant
 #
-# Uso: curl -fsSL https://github.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
+# Uso: curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
 #
 
 set -euo pipefail
@@ -11,7 +11,7 @@ set -euo pipefail
 # ============================================
 # CONFIGURAÇÕES
 # ============================================
-readonly SCRIPT_VERSION="1.4.0"
+readonly SCRIPT_VERSION="1.5.0"
 readonly INSTALL_DIR="/opt/controle-financeiro"
 readonly SERVICE_NAME="controle-financeiro"
 readonly REPO_URL="https://github.com/rafaelfmuniz/app-financeiro.git"
@@ -22,10 +22,7 @@ readonly CREDENTIALS_FILE="/root/.financeiro-credentials"
 readonly BACKUP_BASE_DIR="/opt/financeiro-backups"
 readonly MAX_BACKUPS=5
 
-# Opcão para limpar cache
-LIMPAR_CACHE=0
-
-# Opcão para limpar cache
+# Opção para limpar cache
 CLEAN_CACHE=0
 
 # ============================================
@@ -169,7 +166,7 @@ validate_system() {
     source /etc/os-release
     log_success "Sistema: $PRETTY_NAME"
     
-    if [[ "$ID" != "ubuntu" ]] && [[ "$ID" != "debutan" ]]; then
+    if [[ "$ID" != "ubuntu" ]] && [[ "$ID" != "debian" ]]; then
         log_warning "Sistema não oficialmente suportado: $ID"
         local confirm
         confirm=$(read_tty "Deseja continuar? (s/N): ")
@@ -202,8 +199,8 @@ validate_system() {
         exit 1
     fi
     
-    # Limpar cache
-    if [[ $LIMPAR_CACHE -eq 1 ]]; then
+    # Limpar cache se solicitado
+    if [[ $CLEAN_CACHE -eq 1 ]]; then
         log_info "Limpando cache..."
         rm -rf /tmp/financeiro-install 2>/dev/null || true
         
@@ -216,11 +213,6 @@ validate_system() {
     fi
     
     log_success "Sistema validado"
-    
-    # Limpar cache local do usuário
-    if [[ -d "$HOME/.cache" ]]; then
-        find "$HOME/.cache" -type f -name "*.sh" -delete 2>/dev/null || true
-    fi
 }
 
 # ============================================
@@ -259,6 +251,13 @@ create_backup() {
         log_info "Fazendo backup do backend..."
         cp -r "$INSTALL_DIR/backend" "$BACKUP_DIR/backend" 2>/dev/null || true
         log_success "Backup do backend: $BACKUP_DIR/backend"
+    fi
+    
+    # Backup frontend if exists
+    if [[ -d "$INSTALL_DIR/frontend" ]]; then
+        log_info "Fazendo backup do frontend..."
+        cp -r "$INSTALL_DIR/frontend" "$BACKUP_DIR/frontend" 2>/dev/null || true
+        log_success "Backup do frontend: $BACKUP_DIR/frontend"
     fi
     
     log_success "Backup completo: $BACKUP_DIR"
@@ -405,6 +404,15 @@ download_application() {
         exit 1
     }
     
+    # Criar estrutura de diretórios
+    mkdir -p "$INSTALL_DIR"
+    
+    # Mover backend
+    mv "$TEMP_DIR/backend" "$INSTALL_DIR/"
+    
+    # Mover frontend
+    mv "$TEMP_DIR/frontend" "$INSTALL_DIR/"
+    
     cd "$INSTALL_DIR" || exit 1
     
     local SERVER_IP
@@ -514,16 +522,22 @@ After=network.target postgresql.service
 
 [Service]
 Type=simple
-User=root
+User=finance
+Group=finance
 WorkingDirectory=$INSTALL_DIR/backend
 EnvironmentFile=$INSTALL_DIR/backend/.env
 ExecStart=$node_path $INSTALL_DIR/backend/src/server.js
 Restart=on-failure
-RestartSec=5
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
+    
+    # Criar usuário finance se não existir
+    if ! id -u finance &>/dev/null; then
+        useradd -r -s /bin/false finance
+    fi
     
     systemctl daemon-reload
     systemctl enable "$SERVICE_NAME"
@@ -680,7 +694,7 @@ show_final_summary() {
 }
 
 # ============================================
-# ATUALIZAÇÃO (FIXADO)
+# ATUALIZAÇÃO
 # ============================================
 update() {
     log_info "Iniciando atualização..."
@@ -690,132 +704,26 @@ update() {
         exit 1
     fi
     
+    create_backup
+    ROLLBACK_POINT="$BACKUP_DIR"
+    
+    cd "$INSTALL_DIR" || exit 1
+    
+    log_info "Parando serviço..."
+    if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+        timeout 10 systemctl stop "$SERVICE_NAME" 2>/dev/null || {
+            log_warning "Serviço não parou em 10s, forçando..."
+            systemctl kill "$SERVICE_NAME" 2>/dev/null || true
+            sleep 1
+        }
+    fi
+    
+    log_info "Salvando configurações..."
+    cp backend/.env /tmp/financeiro-env-backup 2>/dev/null || true
+    
     # Verificar se é repositório git
-    if [[ ! -d "$INSTALL_DIR/.git" ]]; then
-        create_backup
-        ROLLBACK_POINT="$BACKUP_DIR"
-        
-        cd "$INSTALL_DIR" || exit 1
-        
-        log_info "Parando serviço..."
-        if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-            timeout 10 systemctl stop "$SERVICE_NAME" 2>/dev/null || {
-                log_warning "Serviço não parou em 10s, forçando..."
-                systemctl kill "$SERVICE_NAME" 2>/dev/null || true
-                sleep 1
-            }
-        fi
-        
-        log_info "Salvando configurações..."
-        cp backend/.env /tmp/financeiro-env-backup 2>/dev/null || true
-        
-        log_info "Baixando nova versão..."
-        rm -rf "$TEMP_DIR"
-        mkdir -p "$TEMP_DIR"
-        git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$TEMP_DIR" || {
-            log_error "Falha ao clonar repositório"
-            perform_rollback "$ROLLBACK_POINT"
-            exit 1
-        }
-        
-        log_info "Copiando arquivos do backend (INSTALAÇÃO NÃO-GIT)..."
-        cd "$TEMP_DIR/backend" || exit 1
-        
-        # Copiar backend/src/* recursivamente
-        rm -rf "$INSTALL_DIR/backend/src"
-        mkdir -p "$INSTALL_DIR/backend/src"
-        
-        log_info "  Copiando server.js..."
-        cp "$TEMP_DIR/backend/src/server.js" "$INSTALL_DIR/backend/src/" || {
-            log_error "Falha ao copiar server.js"
-            perform_rollback "$ROLLBACK_POINT"
-            exit 1
-        }
-        
-        log_info "  Copiando db.js..."
-        cp "$TEMP_DIR/backend/src/db.js" "$INSTALL_DIR/backend/src/" || {
-            log_error "Falha ao copiar db.js"
-            perform_rollback "$ROLLBACK_POINT"
-            exit 1
-        }
-        
-        log_info "  Copiando email.js..."
-        cp "$TEMP_DIR/backend/src/email.js" "$INSTALL_DIR/backend/src/" || {
-            log_error "Falha ao copiar email.js"
-            perform_rollback "$ROLLBACK_POINT"
-            exit 1
-        }
-        
-        log_info "  Copiando smtp.js..."
-        cp "$TEMP_DIR/backend/src/smtp.js" "$INSTALL_DIR/backend/src/" || {
-            log_error "Falha ao copiar smtp.js"
-            perform_rollback "$ROLLBACK_POINT"
-            exit 1
-        }
-        
-        log_info "  Copiando middleware/*..."
-        mkdir -p "$INSTALL_DIR/backend/src/middleware"
-        cp "$TEMP_DIR/backend/src/middleware/"* "$INSTALL_DIR/backend/src/middleware/" || true
-        
-        log_info "  Copiando routes/*..."
-        mkdir -p "$INSTALL_DIR/backend/src/routes"
-        cp "$TEMP_DIR/backend/src/routes/"* "$INSTALL_DIR/backend/src/routes/" || true
-        
-        log_info "  Copiando utils/*..."
-        mkdir -p "$INSTALL_DIR/backend/src/utils"
-        cp "$TEMP_DIR/backend/src/utils/"* "$INSTALL_DIR/backend/src/utils/" || true
-        
-        log_success "Arquivos do backend copiados"
-        
-        # Copiar arquivos de nível superior
-        cp "$TEMP_DIR/backend/"*.js "$INSTALL_DIR/backend/" 2>/dev/null || true
-        cp "$TEMP_DIR/backend/"*.json "$INSTALL_DIR/backend/" 2>/dev/null || true
-        
-        log_info "Atualizando arquivos do frontend..."
-        cd "$INSTALL_DIR/frontend" || exit 1
-        npm install --no-audit --no-fund --silent || {
-            log_error "Falha ao atualizar dependências (frontend)"
-            perform_rollback "$ROLLBACK_POINT"
-            exit 1
-        }
-        
-        npm run build || {
-            log_error "Falha no build do frontend"
-            perform_rollback "$ROLLBACK_POINT"
-            exit 1
-        }
-        
-        log_info "Copiando frontend para backend/src/frontend-dist..."
-        rm -rf "$INSTALL_DIR/backend/src/frontend-dist"
-        mkdir -p "$INSTALL_DIR/backend/src/frontend-dist"
-        cp -r "$INSTALL_DIR/frontend/dist/"* "$INSTALL_DIR/backend/src/frontend-dist/"
-        
-        log_info "Restaurando configurações..."
-        cp /tmp/financeiro-env-backup "$INSTALL_DIR/backend/.env" 2>/dev/null || true
-        
-        rm -rf "$TEMP_DIR"
-        
-        log_success "Código atualizado"
-    else
-        # Instalação via git - usar git fetch/reset
-        create_backup
-        ROLLBACK_POINT="$BACKUP_DIR"
-        
-        cd "$INSTALL_DIR" || exit 1
-        
-        log_info "Parando serviço..."
-        if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-            timeout 10 systemctl stop "$SERVICE_NAME" 2>/dev/null || {
-                log_warning "Serviço não parou em 10s, forçando..."
-                systemctl kill "$SERVICE_NAME" 2>/dev/null || true
-                sleep 1
-            }
-        fi
-        
-        log_info "Salvando configurações..."
-        cp backend/.env /tmp/financeiro-env-backup 2>/dev/null || true
-        
-        log_info "Atualizando código via git..."
+    if [[ -d "$INSTALL_DIR/.git" ]]; then
+        log_info "Atualizando via git..."
         git fetch origin || {
             log_error "Falha ao buscar atualizações"
             perform_rollback "$ROLLBACK_POINT"
@@ -827,41 +735,74 @@ update() {
             perform_rollback "$ROLLBACK_POINT"
             exit 1
         }
+        log_success "Código atualizado via git"
+    else
+        log_info "Atualizando via download (instalação não-git)..."
         
-        log_success "Código atualizado para a versão mais recente"
-        
-        log_info "Restaurando configurações..."
-        cp /tmp/financeiro-env-backup backend/.env 2>/dev/null || true
-        
-        log_info "Atualizando dependências..."
-        
-        cd "$INSTALL_DIR/backend" || exit 1
-        npm install --no-audit --no-fund --silent || {
-            log_error "Falha ao atualizar dependências (backend)"
+        # Baixar nova versão
+        rm -rf "$TEMP_DIR"
+        mkdir -p "$TEMP_DIR"
+        git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$TEMP_DIR" || {
+            log_error "Falha ao clonar repositório"
             perform_rollback "$ROLLBACK_POINT"
             exit 1
         }
         
-        cd "$INSTALL_DIR/frontend" || exit 1
-        npm install --no-audit --no-fund --silent || {
-            log_error "Falha ao atualizar dependências (frontend)"
-            perform_rollback "$ROLLBACK_POINT"
-            exit 1
-        }
+        # Preservar node_modules para agilizar
+        if [[ -d "$INSTALL_DIR/backend/node_modules" ]]; then
+            log_info "Preservando node_modules do backend..."
+            mv "$INSTALL_DIR/backend/node_modules" /tmp/financeiro-backend-modules
+        fi
         
-        npm run build || {
-            log_error "Falha no build do frontend"
-            perform_rollback "$ROLLBACK_POINT"
-            exit 1
-        }
+        # Remover e recriar estrutura
+        rm -rf "$INSTALL_DIR/backend/src"
+        rm -rf "$INSTALL_DIR/frontend"
         
-        log_info "Copiando frontend para backend/src/frontend-dist..."
-        rm -rf "$INSTALL_DIR/backend/src/frontend-dist"
-        mkdir -p "$INSTALL_DIR/backend/src/frontend-dist"
-        cp -r "$INSTALL_DIR/frontend/dist/"* "$INSTALL_DIR/backend/src/frontend-dist/"
+        # Copiar novos arquivos
+        cp -r "$TEMP_DIR/backend/src" "$INSTALL_DIR/backend/"
+        cp -r "$TEMP_DIR/frontend" "$INSTALL_DIR/"
         
-        log_success "Dependências atualizadas"
+        # Restaurar node_modules se preservado
+        if [[ -d /tmp/financeiro-backend-modules ]]; then
+            mv /tmp/financeiro-backend-modules "$INSTALL_DIR/backend/node_modules"
+        fi
+        
+        log_success "Código atualizado via download"
     fi
+    
+    log_info "Restaurando configurações..."
+    cp /tmp/financeiro-env-backup "$INSTALL_DIR/backend/.env" 2>/dev/null || true
+    
+    log_info "Atualizando dependências do backend..."
+    cd "$INSTALL_DIR/backend" || exit 1
+    npm install --no-audit --no-fund --silent || {
+        log_error "Falha ao atualizar dependências (backend)"
+        perform_rollback "$ROLLBACK_POINT"
+        exit 1
+    }
+    
+    log_info "Atualizando dependências do frontend..."
+    cd "$INSTALL_DIR/frontend" || exit 1
+    npm install --no-audit --no-fund --silent || {
+        log_error "Falha ao atualizar dependências (frontend)"
+        perform_rollback "$ROLLBACK_POINT"
+        exit 1
+    }
+    
+    log_info "Compilando frontend..."
+    npm run build || {
+        log_error "Falha no build do frontend"
+        perform_rollback "$ROLLBACK_POINT"
+        exit 1
+    }
+    
+    log_info "Copiando frontend para backend/src/frontend-dist..."
+    rm -rf "$INSTALL_DIR/backend/src/frontend-dist"
+    mkdir -p "$INSTALL_DIR/backend/src/frontend-dist"
+    cp -r "$INSTALL_DIR/frontend/dist/"* "$INSTALL_DIR/backend/src/frontend-dist/"
+    
+    log_info "Ajustando permissões..."
+    chown -R finance:finance "$INSTALL_DIR" 2>/dev/null || true
     
     log_info "Reiniciando serviço..."
     systemctl start "$SERVICE_NAME" || {
@@ -893,6 +834,9 @@ install_new() {
     download_application
     install_npm_dependencies
     setup_service
+    
+    # Ajustar permissões
+    chown -R finance:finance "$INSTALL_DIR"
     
     log_info "Iniciando serviço..."
     systemctl start "$SERVICE_NAME" || {
@@ -1010,7 +954,7 @@ show_menu() {
     clear
     
     echo "========================================"
-    echo "Controle Financeiro - Instalador v${SCRIPT_VERSION} - FIX DEFINITIVO"
+    echo "Controle Financeiro - Instalador v${SCRIPT_VERSION}"
     echo "Sistema de Gestão Financeira"
     echo "========================================"
     echo ""
@@ -1054,7 +998,7 @@ get_latest_version() {
         return
     fi
     
-    # Extrair tag_name corretamente (usar jq para parsing JSON)
+    # Extrair tag_name corretamente
     version=$(echo "$response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4 | sed 's/"//g' || true)
     
     if [[ -z "$version" ]]; then
@@ -1107,7 +1051,7 @@ restore_backup() {
         exit 1
     fi
     
-    local selected_backup="${backups[$((choice-1))}"
+    local selected_backup="${backups[$((choice-1))]}"
     
     echo ""
     echo "========================================"
@@ -1131,7 +1075,7 @@ restore_backup() {
 # ============================================
 main() {
     log_info "=========================================="
-    log_info "Instalador v${SCRIPT_VERSION} - FIX DEFINITIVO"
+    log_info "Instalador v${SCRIPT_VERSION}"
     log_info "=========================================="
     
     show_menu
