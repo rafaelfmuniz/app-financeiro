@@ -11,7 +11,7 @@ set -euo pipefail
 # ============================================
 # CONFIGURAÇÕES
 # ============================================
-readonly SCRIPT_VERSION="1.3.1"
+readonly SCRIPT_VERSION="1.3.2"
 readonly INSTALL_DIR="/opt/controle-financeiro"
 readonly SERVICE_NAME="controle-financeiro"
 readonly REPO_URL="https://github.com/rafaelfmuniz/app-financeiro.git"
@@ -833,7 +833,9 @@ update() {
         log_info "Atualizando arquivos do backend..."
         # Copiar backend/src/*
         rm -rf "$INSTALL_DIR/backend/src"
-        cp -r "$TEMP_DIR/backend/src/." "$INSTALL_DIR/backend/src/" 2>/dev/null || true
+        
+        # Usar tar para copiar recursivamente
+        (cd "$TEMP_DIR/backend/src" && tar cf - .) | (cd "$INSTALL_DIR/backend" && tar xf -) 2>/dev/null || true
         
         # Copiar backend/*.js, *.json
         cp "$TEMP_DIR/backend/"*.js "$INSTALL_DIR/backend/" 2>/dev/null || true
