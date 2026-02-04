@@ -197,7 +197,8 @@ confirma_atualizacao() {
   echo "  3) ${RED}CANCELAR${NC}"
   echo ""
   
-  read -p "Sua escolha [1-3]: " escolha
+  # Ler do terminal real (/dev/tty) em vez de stdin
+  read -p "Sua escolha [1-3]: " escolha < /dev/tty
   
   case "$escolha" in
     1)
@@ -276,14 +277,14 @@ instala_fresh() {
   echo -e "${YELLOW}═════════════════════════════════════${NC}"
   echo ""
   
-  print_warning "Isso irá: ${RED}DELETAR TODOS OS DADOS${NC} em $APP_DIR"
-  print_warning "Incluindo banco de dados, configurações, etc."
-  echo ""
-  print_warning "Se você tem dados importantes, ${YELLOW}FAÇA BACKUP MANUAL ANTES!${NC}"
-  echo ""
-  
-  print_info "Pressione ENTER para continuar ou CTRL+C para cancelar..."
-  read -r
+   print_warning "Isso irá: ${RED}DELETAR TODOS OS DADOS${NC} em $APP_DIR"
+   print_warning "Incluindo banco de dados, configurações, etc."
+   echo ""
+   print_warning "Se você tem dados importantes, ${YELLOW}FAÇA BACKUP MANUAL ANTES!${NC}"
+   echo ""
+   
+   print_info "Pressione ENTER para continuar ou CTRL+C para cancelar..."
+   read -r < /dev/tty
   
   print_step "1/11" "Instalando dependências do sistema..."
   
@@ -691,7 +692,7 @@ main() {
     print_warning "Se você tem uma instalação existente em outro local, cancele agora."
     print_warning ""
     print_info "Pressione ENTER para continuar ou CTRL+C para cancelar..."
-    read -r
+    read -r < /dev/tty
     
     # Instalação fresh
     instala_fresh
