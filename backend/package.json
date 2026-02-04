@@ -1,6 +1,6 @@
 {
   "name": "finance-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Backend for finance control app",
   "main": "src/server.js",
   "type": "commonjs",
