@@ -11,7 +11,7 @@ set -euo pipefail
 # ============================================
 # CONFIGURAÇÕES
 # ============================================
-readonly SCRIPT_VERSION="1.4.1"
+readonly SCRIPT_VERSION="1.4.0"
 readonly INSTALL_DIR="/opt/controle-financeiro"
 readonly SERVICE_NAME="controle-financeiro"
 readonly REPO_URL="https://github.com/rafaelfmuniz/app-financeiro.git"
@@ -21,6 +21,12 @@ readonly LOG_FILE="/var/log/financeiro-install.log"
 readonly CREDENTIALS_FILE="/root/.financeiro-credentials"
 readonly BACKUP_BASE_DIR="/opt/financeiro-backups"
 readonly MAX_BACKUPS=5
+
+# Opcão para limpar cache
+LIMPAR_CACHE=0
+
+# Opcão para limpar cache
+CLEAN_CACHE=0
 
 # ============================================
 # VARIÁVEIS GLOBAIS
@@ -163,18 +169,58 @@ validate_system() {
     source /etc/os-release
     log_success "Sistema: $PRETTY_NAME"
     
-    if [[ "$ID" != "ubuntu" ]] && [[ "$ID" != "debian" ]]; then
+    if [[ "$ID" != "ubuntu" ]] && [[ "$ID" != "debutan" ]]; then
         log_warning "Sistema não oficialmente suportado: $ID"
+        local confirm
+        confirm=$(read_tty "Deseja continuar? (s/N): ")
+        if [[ ! "$confirm" =~ ^[Ss]$ ]]; then
+            log_info "Instalação cancelada"
+            exit 0
+        fi
     fi
     
-    log_success "Memória: $(free -m | awk '/^Mem:/{print $2}') MB"
+    local total_mem_mb
+    total_mem_mb=$(free -m | awk '/^Mem:/{print $2}')
+    log_info "RAM: ${total_mem_mb}MB"
     
-    if ! ping -c 1 -W 2 github.com &>/dev/null; then
-        log_error "Sem conexão com GitHub"
+    if [[ $total_mem_mb -lt 1024 ]]; then
+        log_warning "RAM abaixo do recomendado (1GB)"
+        local confirm
+        confirm=$(read_tty "Deseja continuar? (s/N): ")
+        if [[ ! "$confirm" =~ ^[Ss]$ ]]; then
+            log_info "Instalação cancelada"
+            exit 0
+        fi
+    fi
+    
+    local free_disk_gb
+    free_disk_gb=$(df -BG /opt 2>/dev/null | awk 'NR==2{print $4}' | sed 's/G//')
+    log_info "Disco: ${free_disk_gb}GB livres"
+    
+    if [[ $free_disk_gb -lt 3 ]]; then
+        log_error "Espaço insuficiente (mínimo: 3GB)"
         exit 1
     fi
     
-    log_success "Conexão OK"
+    # Limpar cache
+    if [[ $LIMPAR_CACHE -eq 1 ]]; then
+        log_info "Limpando cache..."
+        rm -rf /tmp/financeiro-install 2>/dev/null || true
+        
+        # Limpar cache local do usuário
+        if [[ -d "$HOME/.cache" ]]; then
+            find "$HOME/.cache" -type f -name "*.sh" -delete 2>/dev/null || true
+        fi
+        
+        log_success "Cache limpo"
+    fi
+    
+    log_success "Sistema validado"
+    
+    # Limpar cache local do usuário
+    if [[ -d "$HOME/.cache" ]]; then
+        find "$HOME/.cache" -type f -name "*.sh" -delete 2>/dev/null || true
+    fi
 }
 
 # ============================================
