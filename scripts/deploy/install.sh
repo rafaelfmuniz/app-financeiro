@@ -854,13 +854,17 @@ update() {
         # Criar diretórios se não existirem
         mkdir -p "$INSTALL_DIR/backend"
         mkdir -p "$INSTALL_DIR/frontend"
+        mkdir -p "$INSTALL_DIR/backend/src"
         
         # Remover arquivos antigos (preservando node_modules e .env)
-        find "$INSTALL_DIR/backend" -mindepth 1 ! -name "node_modules" ! -name ".env" -exec rm -rf {} + 2>/dev/null || true
+        find "$INSTALL_DIR/backend" -mindepth 1 ! -name "node_modules" ! -name ".env" ! -name "frontend-dist" -exec rm -rf {} + 2>/dev/null || true
         find "$INSTALL_DIR/frontend" -mindepth 1 ! -name "node_modules" ! -name "dist" -exec rm -rf {} + 2>/dev/null || true
         
-        # Copiar novos arquivos
+        # Copiar novos arquivos do backend
         cp -r "$TEMP_DIR/backend/"* "$INSTALL_DIR/backend/" 2>/dev/null || true
+        cp -r "$TEMP_DIR/backend/frontend-dist/"* "$INSTALL_DIR/backend/src/frontend-dist/" 2>/dev/null || true
+        
+        # Copiar novos arquivos do frontend
         cp -r "$TEMP_DIR/frontend/"* "$INSTALL_DIR/frontend/" 2>/dev/null || true
         
         log_info "Restaurando configurações..."
