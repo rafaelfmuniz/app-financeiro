@@ -159,17 +159,16 @@ O **Controle Financeiro** é uma aplicação web moderna para gestão financeira
 
 ## 📦 Instalação
 
-### 🚀 Instalação Automatizada (Ubuntu/Debian) - v1.0.0
+### 🚀 Instalação Automatizada (Ubuntu/Debian) - Última Release
 
-Execute em seu servidor:
-
+**Instalador inteligente (detecta automaticamente a última release):**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/v1.0.0/scripts/deploy/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
 ```
 
-**Instalador de uma linha (Release v1.0.0):**
+**Instalar versão específica (ex: v1.0.0):**
 ```bash
-curl -fsSL https://github.com/rafaelfmuniz/app-financeiro/releases/download/v1.0.0/install.sh | sudo bash
+RELEASE_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
 ```
 
 O instalador irá:

@@ -233,9 +233,27 @@ setup_db() {
   run_as_user postgres psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE \"${db_ident}\" TO \"${user_ident}\""
 }
 
+get_latest_release() {
+  # Fetch the latest release tag from GitHub API
+  local latest_tag
+  latest_tag=$(curl -s https://api.github.com/repos/rafaelfmuniz/app-financeiro/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+  
+  if [ -z "$latest_tag" ] || [ "$latest_tag" = "null" ]; then
+    echo "v1.0.0"  # Fallback to v1.0.0 if API fails
+  else
+    echo "$latest_tag"
+  fi
+}
+
 deploy_app() {
-  # Release version to install
-  RELEASE_VERSION="${RELEASE_VERSION:-v1.0.0}"
+  # Get the latest release version (or use environment variable if set)
+  if [ -n "${RELEASE_VERSION:-}" ]; then
+    echo "Usando versão especificada: $RELEASE_VERSION"
+  else
+    echo "Detectando última release disponível..."
+    RELEASE_VERSION=$(get_latest_release)
+    echo "Última release encontrada: $RELEASE_VERSION"
+  fi
   
   if [ -d "$APP_DIR/.git" ]; then
     echo "Atualizando para release $RELEASE_VERSION..."
