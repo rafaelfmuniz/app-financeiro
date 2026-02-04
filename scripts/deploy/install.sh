@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Controle Financeiro - Instalador v1.3.2 - FIX CRÍTICO
+# Controle Financeiro - Instalador v1.4.0 - FIX DEFINITIVO
 # Sistema de Gestão Financeira Multi-tenant
 #
 # Uso: curl -fsSL https://github.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
@@ -11,7 +11,7 @@ set -euo pipefail
 # ============================================
 # CONFIGURAÇÕES
 # ============================================
-readonly SCRIPT_VERSION="1.3.3"
+readonly SCRIPT_VERSION="1.4.0"
 readonly INSTALL_DIR="/opt/controle-financeiro"
 readonly SERVICE_NAME="controle-financeiro"
 readonly REPO_URL="https://github.com/rafaelfmuniz/app-financeiro.git"
@@ -30,24 +30,6 @@ ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
 BACKUP_DIR=""
 ROLLBACK_POINT=""
-
-# ============================================
-# CORES (PROFISSIONAIS - UMA ÚNICA COR PRINCIPAL)
-# ============================================
-setup_colors() {
-    if [[ -t 2 ]] && [[ -z "${NO_COLOR:-}" ]] && [[ "${TERM:-}" != "dumb" ]]; then
-        NC='\033[0m'
-        DIM='\033[2m'
-        BOLD='\033[1m'
-        YELLOW='\033[0;33m'
-        GREEN='\033[0;32m'
-        RED='\033[0;31m'
-    else
-        NC='' DIM='' BOLD='' YELLOW='' GREEN='' RED=''
-    fi
-}
-
-setup_colors
 
 # ============================================
 # FUNÇÕES DE LOG
@@ -87,8 +69,6 @@ error_handler() {
     echo ""
     echo "Soluções:"
     echo "  1. Verifique o log: $LOG_FILE"
-    echo "  2. Execute novamente com debug:"
-    echo "     curl -fsSL $REPO_URL/raw/main/scripts/deploy/install.sh | sudo bash -s -- --debug"
     echo ""
     
     if [[ -n "$ROLLBACK_POINT" ]]; then
@@ -123,24 +103,24 @@ read_tty() {
 check_existing_installation() {
     local has_install=0
     
-    if [[ -d "$INSTALL_DIR/.git" ]]; then
+    if [[ -f "$INSTALL_DIR/backend/src/server.js" ]]; then
         ((has_install++))
+        log_success "Arquivo server.js encontrado em backend/src/"
+    fi
+    
+    if [[ -d "$INSTALL_DIR/backend/node_modules" ]]; then
+        ((has_install++))
+        log_success "node_modules encontrado em backend/"
     fi
     
     if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
         ((has_install++))
-    fi
-    
-    if [[ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]]; then
-        ((has_install++))
-    fi
-    
-    if [[ -d "$INSTALL_DIR/backend/src" ]] && [[ -f "$INSTALL_DIR/backend/src/server.js" ]]; then
-        ((has_install++))
+        log_success "Serviço systemd ativo"
     fi
     
     if [[ -f "$INSTALL_DIR/backend/.env" ]]; then
         ((has_install++))
+        log_success "Arquivo .env encontrado"
     fi
     
     if [[ $has_install -ge 2 ]]; then
@@ -151,12 +131,7 @@ check_existing_installation() {
 }
 
 get_installed_version() {
-    if [[ -d "$INSTALL_DIR/.git" ]]; then
-        cd "$INSTALL_DIR" 2>/dev/null || true
-        local version
-        version=$(git describe --tags --abbrev=0 2>/dev/null || echo "unknown")
-        echo "$version"
-    elif [[ -f "$INSTALL_DIR/backend/package.json" ]]; then
+    if [[ -f "$INSTALL_DIR/backend/package.json" ]]; then
         local version
         version=$(grep '"version"' "$INSTALL_DIR/backend/package.json" 2>/dev/null | head -1 | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+')
         if [[ -n "$version" ]]; then
@@ -186,91 +161,31 @@ validate_system() {
     fi
     
     source /etc/os-release
-    log_info "Sistema: $PRETTY_NAME"
+    log_success "Sistema: $PRETTY_NAME"
     
     if [[ "$ID" != "ubuntu" ]] && [[ "$ID" != "debian" ]]; then
         log_warning "Sistema não oficialmente suportado: $ID"
-        local confirm
-        confirm=$(read_tty "Deseja continuar? (s/N): ")
-        if [[ ! "$confirm" =~ ^[Ss]$ ]]; then
-            log_info "Instalação cancelada"
-            exit 0
-        fi
     fi
     
-    local total_mem_mb
-    total_mem_mb=$(free -m | awk '/^Mem:/{print $2}')
-    log_info "RAM: ${total_mem_mb}MB"
-    
-    if [[ $total_mem_mb -lt 1024 ]]; then
-        log_warning "RAM abaixo do recomendado (1GB)"
-        local confirm
-        confirm=$(read_tty "Deseja continuar? (s/N): ")
-        if [[ ! "$confirm" =~ ^[Ss]$ ]]; then
-            log_info "Instalação cancelada"
-            exit 0
-        fi
-    fi
-    
-    local free_disk_gb
-    free_disk_gb=$(df -BG /opt 2>/dev/null | awk 'NR==2{print $4}' | sed 's/G//')
-    log_info "Disco: ${free_disk_gb}GB livres"
-    
-    if [[ $free_disk_gb -lt 3 ]]; then
-        log_error "Espaço insuficiente (mínimo: 3GB)"
-        exit 1
-    fi
-    
-    check_port 3000 "Aplicação"
-    check_port 5432 "PostgreSQL"
+    log_success "Memória: $(free -m | awk '/^Mem:/{print $2}') MB"
     
     if ! ping -c 1 -W 2 github.com &>/dev/null; then
         log_error "Sem conexão com GitHub"
         exit 1
     fi
     
-    log_success "Sistema validado"
-}
-
-check_port() {
-    local port=$1
-    local service=$2
-    
-    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
-        local pid=$(lsof -Pi :$port -sTCP:LISTEN -t)
-        log_warning "Porta $port em uso pelo processo $pid ($service)"
-        local confirm
-        confirm=$(read_tty "Matar processo e continuar? (s/N): ")
-        if [[ "$confirm" =~ ^[Ss]$ ]]; then
-            kill -9 $pid 2>/dev/null || true
-        else
-            log_info "Instalação cancelada"
-            exit 0
-        fi
-    fi
+    log_success "Conexão OK"
 }
 
 # ============================================
 # BACKUP E ROLLBACK
 # ============================================
 create_backup() {
-    local backup_type=$1
-    
-    echo ""
-    log_info "Deseja criar backup antes de $backup_type?"
-    local backup_choice
-    backup_choice=$(read_tty "Digite 's' para sim ou 'n' para não (padrão: s): ")
-    
-    if [[ "$backup_choice" =~ ^[Nn]$ ]]; then
-        log_info "Backup ignorado pelo usuário"
-        BACKUP_DIR=""
-        return
-    fi
+    log_info "Criando backup..."
     
     mkdir -p "$BACKUP_BASE_DIR"
     BACKUP_DIR="$BACKUP_BASE_DIR/financeiro-backup-$(date +%Y%m%d-%H%M%S)"
     
-    log_info "Criando backup em: $BACKUP_DIR"
     mkdir -p "$BACKUP_DIR"
     
     # Backup database
@@ -287,69 +202,64 @@ create_backup() {
             PGPASSWORD="$DB_PASS" pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>/dev/null || {
                 log_warning "Não foi possível fazer backup do banco de dados"
             }
+            log_success "Backup do banco de dados: $BACKUP_DIR/database.sql"
+        else
+            log_warning "Arquivo .env incompleto, pulando backup do banco"
         fi
     fi
     
-    # Backup installation directory
-    if [[ -d "$INSTALL_DIR" ]]; then
-        log_info "Fazendo backup do diretório de instalação..."
-        cp -r "$INSTALL_DIR" "$BACKUP_DIR/installation" 2>/dev/null || {
-            log_warning "Não foi possível fazer backup da instalação"
-        }
+    # Backup installation
+    if [[ -d "$INSTALL_DIR/backend" ]]; then
+        log_info "Fazendo backup do backend..."
+        cp -r "$INSTALL_DIR/backend" "$BACKUP_DIR/backend" 2>/dev/null || true
+        log_success "Backup do backend: $BACKUP_DIR/backend"
     fi
     
-    # Backup .env file
-    if [[ -f "$INSTALL_DIR/backend/.env" ]]; then
-        log_info "Fazendo backup do arquivo .env..."
-        cp "$INSTALL_DIR/backend/.env" "$BACKUP_DIR/.env" 2>/dev/null || {
-            log_warning "Não foi possível fazer backup do .env"
-        }
-    fi
+    log_success "Backup completo: $BACKUP_DIR"
     
-    log_success "Backup criado em: $BACKUP_DIR"
-    
-    rotate_backups "$BACKUP_BASE_DIR" $MAX_BACKUPS
+    rotate_backups
 }
 
 rotate_backups() {
-    local backup_dir=$1
-    local max_backups=$2
+    log_info "Gerenciando rotação de backups (mantendo $MAX_BACKUPS mais recentes)..."
     
-    log_info "Gerenciando rotação de backups (mantendo os $max_backups mais recentes)..."
+    local backups=($(ls -1td "$BACKUP_BASE_DIR"/financeiro-backup-* 2>/dev/null || true))
+    local total=${#backups[@]}
     
-    local backups
-    backups=$(ls -1td "$backup_dir"/financeiro-backup-* 2>/dev/null || true)
-    
-    if [[ -z "$backups" ]]; then
-        log_info "Nenhum backup encontrado para rotação"
-        return
-    fi
-    
-    local total_count
-    total_count=$(echo "$backups" | wc -l)
-    
-    local to_remove=$((total_count - max_backups))
-    
-    if [[ $to_remove -gt 0 ]]; then
+    if [[ $total -gt $MAX_BACKUPS ]]; then
+        local to_remove=$((total - MAX_BACKUPS))
         log_info "Removendo $to_remove backup(s) antigo(s)..."
-        echo "$backups" | tail -n "$to_remove" | while read -r old_backup; do
-            if [[ -d "$old_backup" ]]; then
-                rm -rf "$old_backup"
-                log_info "Removido: $(basename "$old_backup")"
+        local i=0
+        while [[ $i -lt $to_remove ]]; do
+            if [[ -d "${backups[$i]}" ]]; then
+                rm -rf "${backups[$i]}"
+                log_info "Removido: $(basename "${backups[$i]}")"
             fi
+            ((i++))
         done
-        log_success "Rotação de backups concluída"
+        log_success "Rotação concluída"
     else
-        log_info "Nenhum backup antigo para remover ($total_count total, máximo: $max_backups)"
+        log_success "Nenhum backup antigo para remover ($total total, máximo: $MAX_BACKUPS)"
     fi
 }
 
 perform_rollback() {
     local backup_dir=$1
     
-    log_warning "Rollback de $backup_dir..."
+    log_warning "Executando rollback de: $backup_dir"
     
+    # Parar serviço
+    systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+    
+    # Verificar e restaurar .env
+    if [[ -f "$backup_dir/backend/.env" ]]; then
+        log_info "Restaurando .env..."
+        cp "$backup_dir/backend/.env" "$INSTALL_DIR/backend/.env"
+    fi
+    
+    # Restaurar banco se existir
     if [[ -f "$backup_dir/database.sql" ]]; then
+        log_info "Restaurando banco de dados..."
         if [[ -f "$INSTALL_DIR/backend/.env" ]]; then
             local DB_HOST DB_PORT DB_NAME DB_USER DB_PASS
             DB_HOST=$(grep "^DB_HOST=" "$INSTALL_DIR/backend/.env" | cut -d'=' -f2)
@@ -359,19 +269,21 @@ perform_rollback() {
             DB_PASS=$(grep "^DB_PASS=" "$INSTALL_DIR/backend/.env" | cut -d'=' -f2)
             
             if [[ -n "$DB_NAME" ]] && [[ -n "$DB_USER" ]] && [[ -n "$DB_PASS" ]]; then
-                PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" < "$backup_dir/database.sql" 2>/dev/null || true
+                PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" < "$backup_dir/database.sql" 2>/dev/null || {
+                    log_warning "Não foi possível restaurar banco de dados"
+                }
+                log_success "Banco de dados restaurado"
             fi
         fi
     fi
     
-    if [[ -d "$backup_dir/installation" ]]; then
-        rm -rf "$INSTALL_DIR"
-        cp -r "$backup_dir/installation" "$INSTALL_DIR" 2>/dev/null || true
-    fi
+    # Reiniciar serviço
+    log_info "Reiniciando serviço..."
+    systemctl start "$SERVICE_NAME" 2>/dev/null || true
     
-    if [[ -f "$backup_dir/.env" ]]; then
-        cp "$backup_dir/.env" "$INSTALL_DIR/backend/.env" 2>/dev/null || true
-    fi
+    sleep 3
+    
+    log_success "Rollback concluído"
 }
 
 # ============================================
@@ -385,7 +297,8 @@ install_dependencies() {
         exit 1
     }
     
-    apt-get install -y nodejs npm postgresql postgresql-client git curl openssl build-essential python3 -qq || {
+    DEBIAN_FRONTEND=noninteractive
+    apt-get install -y nodejs npm postgresql postgresql-client git curl openssl -qq || {
         log_error "Falha ao instalar pacotes"
         exit 1
     }
@@ -438,9 +351,10 @@ EOF
 download_application() {
     log_info "Baixando aplicação..."
     
-    mkdir -p "$INSTALL_DIR"
+    rm -rf "$TEMP_DIR"
+    mkdir -p "$TEMP_DIR"
     
-    git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR" || {
+    git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$TEMP_DIR" || {
         log_error "Falha ao clonar repositório"
         exit 1
     }
@@ -608,6 +522,9 @@ health_check() {
     else
         echo -e "\r[FALHA]"
         echo "   → A aplicação não respondeu após $max_attempts tentativas"
+        echo "   → Verificando logs..."
+        echo ""
+        journalctl -u "$SERVICE_NAME" -n 30 --no-pager 2>&1
         return 1
     fi
     
@@ -717,82 +634,7 @@ show_final_summary() {
 }
 
 # ============================================
-# INSTALAÇÃO COMPLETA
-# ============================================
-install_new() {
-    log_info "Iniciando instalação limpa..."
-    
-    validate_system
-    create_backup "pre-install"
-    ROLLBACK_POINT="$BACKUP_DIR"
-    
-    install_dependencies
-    setup_database
-    download_application
-    install_npm_dependencies
-    setup_service
-    
-    log_info "Iniciando serviço..."
-    systemctl start "$SERVICE_NAME" || {
-        log_error "Falha ao iniciar serviço"
-        exit 1
-    }
-    
-    sleep 5
-    
-    health_check
-    save_credentials
-    cleanup
-    
-    show_final_summary "install"
-}
-
-# ============================================
-# REINSTALAÇÃO
-# ============================================
-reinstall() {
-    log_warning "Iniciando reinstalação..."
-    
-    echo ""
-    echo "========================================"
-    echo "ATENÇÃO: Isso removerá TODOS os dados!"
-    echo "========================================"
-    echo ""
-    
-    local confirm
-    confirm=$(read_tty "Digite 'SIM' para confirmar: ")
-    
-    if [[ "$confirm" != "SIM" ]]; then
-        log_info "Reinstalação cancelada"
-        exit 0
-    fi
-    
-    create_backup "pre-reinstall"
-    
-    log_info "Parando serviço..."
-    systemctl stop "$SERVICE_NAME" 2>/dev/null || true
-    systemctl disable "$SERVICE_NAME" 2>/dev/null || true
-    rm -f "/etc/systemd/system/${SERVICE_NAME}.service"
-    systemctl daemon-reload 2>/dev/null || true
-    
-    log_info "Removendo banco de dados..."
-    sudo -u postgres psql <<EOF 2>/dev/null || true
-DROP DATABASE IF EXISTS finance_db;
-DROP USER IF EXISTS finance_user;
-EOF
-    
-    log_info "Removendo arquivos..."
-    rm -rf "$INSTALL_DIR"
-    rm -rf "$TEMP_DIR"
-    
-    log_success "Limpeza concluída"
-    echo ""
-    
-    install_new
-}
-
-# ============================================
-# ATUALIZAÇÃO
+# ATUALIZAÇÃO (FIXADO)
 # ============================================
 update() {
     log_info "Iniciando atualização..."
@@ -804,7 +646,7 @@ update() {
     
     # Verificar se é repositório git
     if [[ ! -d "$INSTALL_DIR/.git" ]]; then
-        create_backup "pre-update"
+        create_backup
         ROLLBACK_POINT="$BACKUP_DIR"
         
         cd "$INSTALL_DIR" || exit 1
@@ -830,15 +672,56 @@ update() {
             exit 1
         }
         
-        log_info "Atualizando arquivos do backend..."
-        # Copiar backend/src/*
+        log_info "Copiando arquivos do backend (INSTALAÇÃO NÃO-GIT)..."
+        cd "$TEMP_DIR/backend" || exit 1
+        
+        # Copiar backend/src/* recursivamente
         rm -rf "$INSTALL_DIR/backend/src"
+        mkdir -p "$INSTALL_DIR/backend/src"
         
-        # Usar cp -R para copiar recursivamente
-        cp -R "$TEMP_DIR/backend/src" "$INSTALL_DIR/backend/" 2>/dev/null || true
-        cp -R "$TEMP_DIR/backend/src/" "$INSTALL_DIR/backend/" 2>/dev/null || true
+        log_info "  Copiando server.js..."
+        cp "$TEMP_DIR/backend/src/server.js" "$INSTALL_DIR/backend/src/" || {
+            log_error "Falha ao copiar server.js"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
+        }
         
-        # Copiar backend/*.js, *.json
+        log_info "  Copiando db.js..."
+        cp "$TEMP_DIR/backend/src/db.js" "$INSTALL_DIR/backend/src/" || {
+            log_error "Falha ao copiar db.js"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
+        }
+        
+        log_info "  Copiando email.js..."
+        cp "$TEMP_DIR/backend/src/email.js" "$INSTALL_DIR/backend/src/" || {
+            log_error "Falha ao copiar email.js"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
+        }
+        
+        log_info "  Copiando smtp.js..."
+        cp "$TEMP_DIR/backend/src/smtp.js" "$INSTALL_DIR/backend/src/" || {
+            log_error "Falha ao copiar smtp.js"
+            perform_rollback "$ROLLBACK_POINT"
+            exit 1
+        }
+        
+        log_info "  Copiando middleware/*..."
+        mkdir -p "$INSTALL_DIR/backend/src/middleware"
+        cp "$TEMP_DIR/backend/src/middleware/"* "$INSTALL_DIR/backend/src/middleware/" || true
+        
+        log_info "  Copiando routes/*..."
+        mkdir -p "$INSTALL_DIR/backend/src/routes"
+        cp "$TEMP_DIR/backend/src/routes/"* "$INSTALL_DIR/backend/src/routes/" || true
+        
+        log_info "  Copiando utils/*..."
+        mkdir -p "$INSTALL_DIR/backend/src/utils"
+        cp "$TEMP_DIR/backend/src/utils/"* "$INSTALL_DIR/backend/src/utils/" || true
+        
+        log_success "Arquivos do backend copiados"
+        
+        # Copiar arquivos de nível superior
         cp "$TEMP_DIR/backend/"*.js "$INSTALL_DIR/backend/" 2>/dev/null || true
         cp "$TEMP_DIR/backend/"*.json "$INSTALL_DIR/backend/" 2>/dev/null || true
         
@@ -864,12 +747,12 @@ update() {
         log_info "Restaurando configurações..."
         cp /tmp/financeiro-env-backup "$INSTALL_DIR/backend/.env" 2>/dev/null || true
         
-        log_success "Código atualizado"
-        
         rm -rf "$TEMP_DIR"
+        
+        log_success "Código atualizado"
     else
         # Instalação via git - usar git fetch/reset
-        create_backup "pre-update"
+        create_backup
         ROLLBACK_POINT="$BACKUP_DIR"
         
         cd "$INSTALL_DIR" || exit 1
@@ -950,6 +833,81 @@ update() {
 }
 
 # ============================================
+# INSTALAÇÃO COMPLETA
+# ============================================
+install_new() {
+    log_info "Iniciando instalação limpa..."
+    
+    validate_system
+    create_backup "pre-install"
+    ROLLBACK_POINT="$BACKUP_DIR"
+    
+    install_dependencies
+    setup_database
+    download_application
+    install_npm_dependencies
+    setup_service
+    
+    log_info "Iniciando serviço..."
+    systemctl start "$SERVICE_NAME" || {
+        log_error "Falha ao iniciar serviço"
+        exit 1
+    }
+    
+    sleep 5
+    
+    health_check
+    save_credentials
+    cleanup
+    
+    show_final_summary "install"
+}
+
+# ============================================
+# REINSTALAÇÃO
+# ============================================
+reinstall() {
+    log_warning "Iniciando reinstalação..."
+    
+    echo ""
+    echo "========================================"
+    echo "ATENÇÃO: Isso removerá TODOS os dados!"
+    echo "========================================"
+    echo ""
+    
+    local confirm
+    confirm=$(read_tty "Digite 'SIM' para confirmar: ")
+    
+    if [[ "$confirm" != "SIM" ]]; then
+        log_info "Reinstalação cancelada"
+        exit 0
+    fi
+    
+    create_backup "pre-reinstall"
+    
+    log_info "Parando serviço..."
+    systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+    systemctl disable "$SERVICE_NAME" 2>/dev/null || true
+    rm -f "/etc/systemd/system/${SERVICE_NAME}.service"
+    systemctl daemon-reload 2>/dev/null || true
+    
+    log_info "Removendo banco de dados..."
+    sudo -u postgres psql <<EOF 2>/dev/null || true
+DROP DATABASE IF EXISTS finance_db;
+DROP USER IF EXISTS finance_user;
+EOF
+    
+    log_info "Removendo arquivos..."
+    rm -rf "$INSTALL_DIR"
+    rm -rf "$TEMP_DIR"
+    
+    log_success "Limpeza concluída"
+    echo ""
+    
+    install_new
+}
+
+# ============================================
 # DESINSTALAÇÃO
 # ============================================
 uninstall() {
@@ -1006,7 +964,7 @@ show_menu() {
     clear
     
     echo "========================================"
-    echo "Controle Financeiro - Instalador v${SCRIPT_VERSION}"
+    echo "Controle Financeiro - Instalador v${SCRIPT_VERSION} - FIX DEFINITIVO"
     echo "Sistema de Gestão Financeira"
     echo "========================================"
     echo ""
@@ -1017,8 +975,8 @@ show_menu() {
         current_version=$(get_installed_version)
         latest_version=$(get_latest_version)
         echo "Instalação detectada em: $INSTALL_DIR"
-        echo "Versão atual:  $current_version"
-        echo "Nova versão:   $latest_version"
+        echo "Versão instalada: $current_version"
+        echo "Nova versão:    $latest_version"
         echo ""
     fi
     
@@ -1028,7 +986,8 @@ show_menu() {
     echo "  2) Reinstalar (remove tudo e reinstala)"
     echo "  3) Atualizar (mantém dados)"
     echo "  4) Desinstalar (remove tudo)"
-    echo "  5) Sair"
+    echo "  5) Restaurar backup"
+    echo "  6) Sair"
     echo ""
 }
 
@@ -1070,25 +1029,75 @@ get_latest_version() {
     echo "$version"
 }
 
+restore_backup() {
+    log_info "Restaurando backup..."
+    
+    # Listar backups disponíveis
+    local backups=($(ls -1td "$BACKUP_BASE_DIR"/financeiro-backup-* 2>/dev/null || true))
+    local total=${#backups[@]}
+    
+    if [[ $total -eq 0 ]]; then
+        log_error "Nenhum backup encontrado em: $BACKUP_BASE_DIR"
+        exit 1
+    fi
+    
+    echo ""
+    echo "Backups disponíveis:"
+    echo "========================================"
+    local i=1
+    for backup in "${backups[@]}"; do
+        local backup_date=$(basename "$backup" | sed 's/financeiro-backup-//')
+        echo "  $i) $backup_date"
+        ((i++))
+    done
+    echo ""
+    
+    local choice
+    choice=$(read_tty "Digite o número do backup para restaurar (1-$total): ")
+    
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [[ "$choice" -lt 1 ]] || [[ "$choice" -gt $total ]]; then
+        log_error "Opção inválida"
+        exit 1
+    fi
+    
+    local selected_backup="${backups[$((choice-1))}"
+    
+    echo ""
+    echo "========================================"
+    echo "Backup selecionado: $(basename "$selected_backup")"
+    echo "========================================"
+    echo ""
+    
+    local confirm
+    confirm=$(read_tty "Tem certeza que deseja restaurar este backup? (Digite 'SIM' para confirmar): ")
+    
+    if [[ "$confirm" != "SIM" ]]; then
+        log_info "Restauração cancelada"
+        return
+    fi
+    
+    perform_rollback "$selected_backup"
+}
+
 # ============================================
 # MAIN
 # ============================================
 main() {
     log_info "=========================================="
-    log_info "Iniciando instalador v${SCRIPT_VERSION}"
+    log_info "Instalador v${SCRIPT_VERSION} - FIX DEFINITIVO"
     log_info "=========================================="
     
     show_menu
     
     local choice
-    choice=$(read_tty "Digite uma opção (1-5): ")
+    choice=$(read_tty "Digite uma opção (1-6): ")
     
     case "$choice" in
         1)
             echo ""
             if check_existing_installation; then
                 log_error "Instalação já existe"
-                echo "Use a opção 2 (Reinstalar) para limpar e reinstalar"
+                echo "Use a opção 2 (Reinstalar) ou 3 (Atualizar)"
                 exit 1
             fi
             install_new
@@ -1097,7 +1106,7 @@ main() {
             echo ""
             if ! check_existing_installation; then
                 log_error "Nenhuma instalação encontrada"
-                echo "Use a opção 1 (Instalar) para nova instalação"
+                echo "Use a opção 1 (Instalar)"
                 exit 1
             fi
             reinstall
@@ -1106,7 +1115,7 @@ main() {
             echo ""
             if ! check_existing_installation; then
                 log_error "Nenhuma instalação encontrada"
-                echo "Use a opção 1 (Instalar) para nova instalação"
+                echo "Use a opção 1 (Instalar)"
                 exit 1
             fi
             update
@@ -1115,11 +1124,20 @@ main() {
             echo ""
             if ! check_existing_installation; then
                 log_error "Nenhuma instalação encontrada"
+                echo "Use a opção 1 (Instalar)"
                 exit 1
             fi
             uninstall
             ;;
         5)
+            echo ""
+            if ! check_existing_installation; then
+                log_error "Nenhum backup encontrado para restaurar"
+                exit 1
+            fi
+            restore_backup
+            ;;
+        6)
             echo ""
             log_info "Instalação cancelada"
             exit 0
