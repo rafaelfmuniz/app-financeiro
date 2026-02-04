@@ -1,279 +1,318 @@
-# Release Notes v1.1.0 - Refresh Token System
+# 🎉 Release v1.1.0 - Sistema de Refresh Token
 
-## 🚀 Overview
-
-This release implements a modern authentication system with refresh tokens and provides a **fully automated one-line installer**:
-
-- **Problem**: Sessions remained open indefinitely (8 hours), causing security risks
-- **Problem**: Closing and reopening browser showed logged-in state but with no visible data
-- **Problem**: No automatic token renewal, forcing users to re-login
-- **Problem**: Installation was complex and required multiple decisions
-- **Solution**: Short access tokens (15min) + refresh tokens (30min) with automatic renewal
-- **Solution**: Fully automated installer with zero user interaction
+**Data:** 3 de Fevereiro de 2026  
+**Tag:** [v1.1.0](../../releases/tag/v1.1.0)
 
 ---
 
-## ✨ New Features
+## 🚀 O que há de novo
 
-### Refresh Token System
-- **Access Token**: 15-minute expiration (reduced from 8 hours)
-- **Refresh Token**: 30-minute expiration (standard enterprise/bigtech security)
-- **Automatic Token Rotation**: New refresh token issued on each refresh
-- **Seamless User Experience**: Tokens refresh transparently while user is active
-- **Session Management**: Maximum session time of 30 minutes after login
+### Sistema de Refresh Token Profissional
 
-### Backend Changes
-- New table `refresh_tokens` in database
-- Endpoint `POST /api/auth/refresh` for token renewal
-- Endpoint `POST /api/auth/logout` to invalidate sessions
-- Automatic cleanup of expired refresh tokens
-- Configurable token expiration via environment variables
+- **🔐 Access Token Curto:** 15 minutos de validade (reduzido de 8 horas)
+  - Reduz janela de ataque drasticamente
+  - Renova automaticamente enquanto usuário está ativo
+  - Segurança de nível enterprise/bigtech
 
-### Frontend Changes
-- Response interceptor for automatic token refresh
-- Centralized logout function in `api.js`
-- Session expiration notification with toast messages
-- Token validation on page load
-- Callback system for custom session handling
+- **🔄 Refresh Token Médio:** 30 minutos de validade
+  - Sessão máxima permitida: 30 minutos
+  - Padrão de segurança enterprise
+  - Usuário ativo: tokens renovam automaticamente
+  - Após 30 min: login obrigatório (mesmo se estiver usando)
+
+- **🔄 Rotação Automática de Tokens:**
+  - Novo refresh token emitido em cada refresh
+  - Prevenção de reuso de tokens
+  - Tokens antigos invalidados automaticamente
+
+### Novos Endpoints API
+
+- **`POST /api/auth/refresh`** - Renova tokens expirados
+  - Valida refresh token
+  - Emite novo access token e novo refresh token
+  - Remove refresh token antigo (rotação)
+
+- **`POST /api/auth/logout`** - Encerra sessão completamente
+  - Invalida refresh token no banco
+  - Remove todos os tokens do usuário
+  - Previne reuso de sessões
+
+### Alterações no Frontend
+
+- **🛡️ Interceptor de Response Automático:**
+  - Detecta erro 401 automaticamente
+  - Tenta refresh de token antes de mostrar erro
+  - Repete requisição original automaticamente
+  - Usuário nem percebe que o token expirou
+
+- **🔔 Notificação de Sessão Expirada:**
+  - Toast amigável quando refresh token expira
+  - "Sessão expirada. Por favor, faça login novamente."
+  - Redirecionamento automático para login
+
+- **✅ Verificação Inicial de Token:**
+  - Ao carregar a página, verifica se token ainda é válido
+  - Se expirou, tenta refresh automático
+  - Se refresh expirou, redireciona para login
+
+- **💾 Persistência Automática:**
+  - Fechar e reabrir navegador funciona (por até 30 min)
+  - Sessão mantida sem precisar re-login
+  - Após 30 min: login obrigatório
+
+### Alterações no Backend
+
+- **📊 Nova Tabela `refresh_tokens`:**
+  - Armazena tokens de refresh de forma segura
+  - Token hash com SHA-256
+  - Expiração automática de tokens
+  - Cascata ao deletar usuário
+
+- **🗑️ Limpeza Automática de Tokens:**
+  - Remove tokens expirados do banco
+  - Executado automaticamente em cada refresh
+  - Melhora performance do banco
+
+- **🔒 Segurança Melhorada:**
+  - Configuração via variáveis de ambiente
+  - `JWT_ACCESS_EXPIRATION=15m`
+  - `JWT_REFRESH_EXPIRATION=30m`
+  - `JWT_REFRESH_SECRET` opcional
 
 ---
 
-## 🔧 Configuration
+## 🛠️ Alterações Compatíveis
 
-### New Environment Variables (Optional)
+### Comportamento da Sessão
 
-Add to your `.env` file:
+| Situação | Comportamento Antes (v1.0.0) | Comportamento Novo (v1.1.0) |
+|----------|----------------------------------|--------------------------------|
+| **Acesso via API** | Token válido por 8 horas | Token válido por 15 minutos |
+| **Fechar navegador** | Sessão mantida por 8 horas | Sessão mantida por 30 minutos |
+| **Reabrir após 5 min** | Ainda logado | Ainda logado |
+| **Reabrir após 20 min** | Ainda logado | Ainda logado |
+| **Reabrir após 40 min** | Ainda logado | **Login obrigatório** |
+| **Token expira** | Erro 401, travamento | **Refresh automático, transparente** |
+| **Usuário ativo** | Sessão se perde após 8h | Sessão se estende automaticamente |
 
-```bash
-# JWT Configuration (v1.1.0+)
-JWT_REFRESH_SECRET=your-secret-key-minimum-32-characters
-JWT_ACCESS_EXPIRATION=15m
-JWT_REFRESH_EXPIRATION=30m
-```
+### Benefícios da Nova Autenticação
 
-**Note**: If not provided, defaults will be used. For production, set `JWT_REFRESH_SECRET` with a strong random value.
-
-**Session Behavior (v1.1.0)**:
-- **Access Token**: 15 minutes - Used for API requests
-- **Refresh Token**: 30 minutes - Maximum session duration
-- **When Active**: Tokens refresh automatically, session extends
-- **After 30 Minutes**: User must login again (standard enterprise security)
+✅ **Segurança:** Janela de ataque reduzida de 8h → 15min  
+✅ **Experiência:** Refresh automático, usuário nem percebe  
+✅ **Profissional:** Padrão enterprise/bigtech de 30min de sessão  
+✅ **Conveniente:** Pode fechar/reabrir navegador rapidamente  
+✅ **Controle:** Sessão expira mesmo se usuário ativo por 30min  
 
 ---
 
-## 📦 Installation Instructions
+## 📦 Instalação
 
-### NEW: Fully Automated Installer (Recommended)
+### Nova Instalação (Recomendado)
 
-**ONE COMMAND - EVERYTHING AUTOMATED**
+**INSTALADOR 100% AUTOMATIZADO - ZERO PERGUNTAS**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
 ```
 
-**That's it!** The installer automatically handles:
-- ✅ All system dependencies (PostgreSQL, Node.js, etc.)
-- ✅ Database creation and configuration
-- ✅ Database credentials generation (auto)
-- ✅ Admin account creation (auto)
-- ✅ All secrets generation (JWT, etc.)
-- ✅ Application configuration
-- ✅ Database migrations
-- ✅ npm dependencies installation
-- ✅ Frontend build
-- ✅ Systemd service setup
-- ✅ Service start and health check
-- ✅ Credentials saved to secure file
+**O instalador cria automaticamente:**
+- ✅ Banco de dados PostgreSQL com credenciais geradas
+- ✅ Usuário e senha do banco (auto-gerados)
+- ✅ Conta de administrador (auto-gerada)
+- ✅ Secrets JWT (auto-gerados)
+- ✅ Todas as tabelas do banco (migrations)
+- ✅ Dependências npm instaladas
+- ✅ Frontend compilado
+- ✅ Serviço systemd configurado
+- ✅ Aplicação iniciada e verificada
+- ✅ Credenciais salvas em arquivo seguro
 
-**What it DOES NOT ask:**
-- ❌ Database name (auto: `finance_db`)
-- ❌ Database user (auto: `finance_user`)
-- ❌ Database password (auto-generated)
-- ❌ Admin email (auto: `admin@controle-financeiro.local`)
-- ❌ Admin password (auto-generated)
-- ❌ Admin username (auto: `admin`)
-- ❌ Tenant name (auto: `Principal`)
-- ❌ JWT secrets (auto-generated)
-- ❌ ANY decisions - fully automated!
+**Tudo pronto pra usar!** 🚀
 
-**User responsibility: ZERO** 🎉
+**Credenciais salvas em:** `/opt/controle-financeiro/credentials.txt`
 
-**After installation:**
-- 📋 All credentials saved to: `/opt/controle-financeiro/credentials.txt`
-- 🔗 Access URLs displayed at the end
-- 📝 Management commands shown (restart, logs, etc.)
-- 🚀 Ready to use immediately!
+---
 
-### For Existing Installations (Upgrade to v1.1.0)
+## 🔧 Atualização (Existente)
 
-#### Automatic Update (Recommended)
+### Atualização Automática
 
 ```bash
+cd /opt/controle-financeiro
 sudo bash scripts/deploy/update.sh
 ```
 
-This script will:
-1. ✅ Backup your database
-2. ✅ Backup your .env file
-3. ✅ Update code from Git
-4. ✅ Add missing environment variables
-5. ✅ Run database migrations
-6. ✅ Restart service
-7. ✅ Verify health check
+**O script de update:**
+- ✅ Backup completo do banco de dados
+- ✅ Backup do arquivo .env
+- ✅ Atualiza código do GitHub
+- ✅ Adiciona variáveis de ambiente faltantes
+- ✅ Executa migrations do banco
+- ✅ Reinstala dependências npm
+- ✅ Reinicia serviço
+- ✅ Verifica health check
 
-**All data is preserved! No information will be lost.**
+**Backup automático em:** `/opt/controle-financeiro/backups/`
 
-### For Existing Installations (Upgrade to v1.1.0)
+---
 
-#### Automatic Update (Recommended)
+## 🔒 Segurança
+
+### Melhorias de Segurança Implementadas
+
+1. **Tokens de Acesso Curtos:**
+   - 15 minutos de validade (reduzido de 8 horas)
+   - Janela de ataque drasticamente menor
+   - Renova automaticamente se usuário ativo
+
+2. **Sessão Limitada a 30 Minutos:**
+   - Padrão enterprise/bigtech
+   - Previne sequestro de sessão prolongado
+   - Usuário ativo se beneficia, mas ainda precisa re-login após 30min
+
+3. **Rotação de Refresh Tokens:**
+   - Novo token emitido em cada refresh
+   - Tokens antigos invalidados imediatamente
+   - Prevenção de replay attacks
+
+4. **Hash de Tokens:**
+   - Refresh tokens armazenados com SHA-256
+   - Tokens vazios no banco (não texto plano)
+
+5. **Logout Seguro:**
+   - Remove todos os refresh tokens do usuário
+   - Invalida sessão completamente
+   - Previne reuso de tokens
+
+6. **Limpeza Automática:**
+   - Tokens expirados removidos do banco
+   - Melhora performance
+   - Mantém banco limpo
+
+---
+
+## ⚠️ Breaking Changes
+
+**Nenhum!** Esta release é totalmente compatível com v1.0.0.
+
+### Compatibilidade Backward
+
+- ✅ Sessões existentes (v1.0.0) continuam funcionando até expirarem (8h)
+- ✅ Após atualização, novas sessões usam sistema de refresh token
+- ✅ Usuários podem continuar usando o app sem interrupção
+- ✅ Dados de usuários, transações e categorias **preservados**
+- ✅ Nenhuma perda de dados
+- ✅ Nenhuma migração manual necessária
+
+---
+
+## 🧪 Testes Recomendados Após Atualização
+
+### Teste de Login
 
 ```bash
-sudo bash scripts/deploy/update.sh
+curl -X POST http://seu-servidor:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"seu-email","password":"sua-senha"}'
 ```
 
-This script will:
-1. ✅ Backup your database
-2. ✅ Backup your .env file
-3. ✅ Update code from Git
-4. ✅ Add missing environment variables
-5. ✅ Run database migrations
-6. ✅ Restart service
-7. ✅ Verify health check
+**Resposta esperada (deve incluir ambos):**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "a1b2c3d4e5f6...",
+  "role": "admin",
+  "email": "admin@exemplo.com",
+  ...
+}
+```
 
-**All data is preserved! No information will be lost.**
-
-#### Manual Update
-
-If you prefer manual steps:
-
-1. **Backup your database**:
-   ```bash
-   pg_dump -h localhost -U finance_user -d finance_db > backup-$(date +%Y%m%d).sql
-   ```
-
-2. **Update code**:
-   ```bash
-   cd /opt/controle-financeiro
-   git fetch origin
-   git pull origin main
-   ```
-
-3. **Update .env file**:
-   ```bash
-   # Add these lines to backend/.env
-   JWT_REFRESH_SECRET=$(openssl rand -hex 32)
-   JWT_ACCESS_EXPIRATION=15m
-   JWT_REFRESH_EXPIRATION=30m
-   ```
-
-4. **Run database migration**:
-   ```bash
-   psql -h localhost -U finance_user -d finance_db -f scripts/deploy/migrations/v1.1.0-refresh-tokens.sql
-   ```
-
-5. **Install dependencies**:
-   ```bash
-   cd /opt/controle-financeiro/backend
-   npm install --omit=dev
-   ```
-
-6. **Restart service**:
-   ```bash
-   sudo systemctl restart controle-financeiro
-   ```
-
----
-
-## 🔒 Security Improvements
-
-1. **Short Access Tokens**: Reduced attack window from 8 hours to 15 minutes
-2. **30-Minute Session**: Standard enterprise security, prevents session hijacking
-3. **Refresh Token Rotation**: New tokens issued on each refresh, preventing reuse
-4. **Token Hashing**: Refresh tokens stored with SHA-256 hash in database
-5. **Automatic Cleanup**: Expired tokens removed automatically
-6. **Secure Logout**: Refresh tokens invalidated on logout
-
----
-
-## 🧪 Testing After Update
-
-Verify your installation works correctly:
-
-1. **Test Login**:
-   ```bash
-   curl -X POST http://your-server:3000/api/auth/login \
-     -H "Content-Type: application/json" \
-     -d '{"email":"your-email","password":"your-password"}'
-   ```
-
-2. **Check for Both Tokens**:
-   - Response should include: `token` (access token) and `refreshToken`
-
-3. **Test Refresh**:
-   ```bash
-   curl -X POST http://your-server:3000/api/auth/refresh \
-     -H "Content-Type: application/json" \
-     -d '{"refreshToken":"your-refresh-token"}'
-   ```
-
-4. **Test Logout**:
-   ```bash
-   curl -X POST http://your-server:3000/api/auth/logout \
-     -H "Content-Type: application/json" \
-     -d '{"refreshToken":"your-refresh-token"}'
-   ```
-
-5. **Verify Web Interface**:
-   - Open your browser
-   - Login normally
-   - Close and reopen browser (within 30 minutes)
-   - Verify session is maintained
-   - Wait 15 minutes (access token expires)
-   - Continue using app (should refresh automatically)
-   - After 30 minutes total, should require login
-
----
-
-## 🔄 Rollback Instructions
-
-If you need to rollback to v1.0.0:
-
-### Automatic Rollback
+### Teste de Refresh Token
 
 ```bash
+curl -X POST http://seu-servidor:3000/api/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"seu-refresh-token"}'
+```
+
+**Resposta esperada:**
+```json
+{
+  "accessToken": "novo-access-token...",
+  "refreshToken": "novo-refresh-token..."
+}
+```
+
+### Teste de Logout
+
+```bash
+curl -X POST http://seu-servidor:3000/api/auth/logout \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"seu-refresh-token"}'
+```
+
+**Resposta esperada:**
+```json
+{
+  "ok": true
+}
+```
+
+### Teste de Interface Web
+
+1. Acesse `http://seu-servidor:3000/`
+2. Faça login com credenciais
+3. Feche o navegador
+4. Reabra o navegador (dentro de 30 minutos)
+5. **Verifique:** Ainda logado? ✅
+6. Use o app por alguns minutos
+7. **Verifique:** Funcionando normalmente? ✅
+8. Aguarde 15 minutos (access token expira)
+9. **Verifique:** Ainda funcionando? ✅ (refresh automático)
+10. Aguarde até 30 minutos totais
+11. **Verifique:** Pediu login? ✅ (sessão expirou)
+
+---
+
+## 🔄 Rollback
+
+Se precisar voltar para v1.0.0:
+
+### Rollback Automático
+
+```bash
+cd /opt/controle-financeiro
 sudo bash scripts/deploy/rollback.sh
 ```
 
-Follow prompts to select backup to restore.
+Siga as instruções para selecionar o backup a restaurar.
 
-### Manual Rollback
+### Rollback Manual
 
-1. Restore database:
-   ```bash
-   psql -h localhost -U finance_user -d finance_db < backup-YYYYMMDD-HHMMSS.sql
-   ```
+```bash
+# Restaurar banco de dados
+psql -h localhost -U finance_user -d finance_db < backup-YYYYMMDD-HHMMSS.sql
 
-2. Restore .env:
-   ```bash
-   cp /opt/controle-financeiro/backups/env-backup-YYYYMMDD-HHMMSS /opt/controle-financeiro/backend/.env
-   ```
+# Restaurar .env
+cp /opt/controle-financeiro/backups/env-backup-YYYYMMDD-HHMMSS /opt/controle-financeiro/backend/.env
 
-3. Rollback code:
-   ```bash
-   cd /opt/controle-financeiro
-   git checkout v1.0.0
-   ```
+# Voltar código
+cd /opt/controle-financeiro
+git checkout v1.0.0
 
-4. Restart service:
-   ```bash
-   sudo systemctl restart controle-financeiro
-   ```
+# Reinstalar dependências
+cd backend
+npm install --omit=dev
+
+# Reiniciar serviço
+sudo systemctl restart controle-financeiro
+```
 
 ---
 
-## 📋 Database Changes
+## 📋 Mudanças no Banco de Dados
 
-### New Table: `refresh_tokens`
+### Nova Tabela: `refresh_tokens`
 
 ```sql
 CREATE TABLE refresh_tokens (
@@ -284,47 +323,53 @@ CREATE TABLE refresh_tokens (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- Índices para performance
 CREATE INDEX refresh_tokens_token_hash_idx ON refresh_tokens (token_hash);
 CREATE INDEX refresh_tokens_expires_at_idx ON refresh_tokens (expires_at);
 CREATE INDEX refresh_tokens_user_id_idx ON refresh_tokens (user_id);
 ```
 
-### Existing Tables: No Changes
+### Tabelas Existentes: Nenhuma Alteração
 
-All existing tables remain unchanged. **No data loss risk.**
-
----
-
-## ⚠️ Known Issues
-
-None reported in this release.
+Todas as tabelas existentes permanecem inalteradas.  
+**Zero risco de perda de dados.**
 
 ---
 
-## 📝 Breaking Changes
+## 🗄️ Issues Conhecidos
 
-**None.** This release is fully backward compatible.
-
-- Existing sessions will work until they expire (8 hours)
-- After update, new sessions will use refresh token system
-- Users can continue using app seamlessly
+Nenhum issue reportado nesta release.
 
 ---
 
-## 🙏 Credits
+## 🙏 Agradecimentos
 
-This release addresses user-reported authentication issues and implements industry-standard refresh token patterns with enterprise security practices.
-
----
-
-## 📞 Support
-
-For issues or questions:
-- GitHub Issues: https://github.com/rafaelfmuniz/app-financeiro/issues
-- Documentation: https://github.com/rafaelfmuniz/app-financeiro#readme
+Esta release implementa sistema de autenticação moderno com padrões enterprise/bigtech, baseado em feedback de usuários sobre problemas de sessões infinitas.
 
 ---
 
-**Release Date**: February 3, 2026
-**Version**: 1.1.0
+## 📞 Suporte
 
+Para issues ou dúvidas:
+
+- 🐛 **Issues:** [GitHub Issues](../../issues)
+- 💬 **Discussões:** [GitHub Discussions](../../discussions)
+- 📧 **Email:** Consulte a documentação
+
+- 📚 **Documentação:** [README](../../blob/main/README.md)
+
+---
+
+## 📝 Licença
+
+Este projeto é privado e proprietário.
+
+---
+
+<div align="center">
+
+**🚀 Pronto para produção!**
+
+[![Download v1.1.0](https://img.shields.io/badge/download-v1.1.0-blue)](../../archive/refs/tags/v1.1.0.zip)
+
+</div>
