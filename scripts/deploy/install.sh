@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Controle Financeiro - Instalador
+# Controle Financeiro - Instalador v1.3.2 - FIX CRÍTICO
 # Sistema de Gestão Financeira Multi-tenant
 #
 # Uso: curl -fsSL https://github.com/rafaelfmuniz/app-financeiro/main/scripts/deploy/install.sh | sudo bash
