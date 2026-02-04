@@ -28,6 +28,14 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/
 - Timer de inatividade para considerar refresh token
 - Atualização de variáveis de ambiente em arquivos .env.sample
 
+### Instalação
+- Instalador totalmente automatizado (zero perguntas ao usuário)
+- Auto-geração de todas as credenciais (banco, admin, JWT)
+- Verificação de instalação existente com opção de update
+- Backup automático antes de qualquer alteração
+- Feedback claro do que foi feito em cada passo
+- Interação mínima e profissional
+
 ### Segurança
 - Implementação de refresh token com rotação automática
 - Tokens de acesso com expiração curta (15min) reduzindo janela de ataque
@@ -36,19 +44,12 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/spec/
 - Invalidação de refresh tokens ao fazer logout
 - Proteção CSRF com cookies httpOnly (preparado para implementação futura)
 
-### Instalação
-- Instalador totalmente automatizado (zero perguntas ao usuário)
-- Auto-geração de credenciais (banco de dados, admin, JWT secrets)
-- Auto-criação de todas as tabelas do banco (migrations)
-- Auto-build do frontend
-- Auto-configuração de serviço systemd
-- Credenciais salvas em arquivo seguro
-
 ### Corrigido
-- Sessões que ficavam abertas indefinamente após fechar navegador
+- Sessões que ficavam abertas indefinidamente após fechar navegador
 - Informações do sistema invisíveis ao reabrir navegador após login
 - Ausência de tratamento de erro 401 causando travamento
 - Falta de renovação automática de tokens expirados
+- Instalador que sobrescrevia aplicações sem pergunta
 
 ## [1.0.0] - 2026-01-31
 
