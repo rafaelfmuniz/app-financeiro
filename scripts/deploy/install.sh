@@ -184,20 +184,20 @@ busca_ultima_versao() {
 
 confirma_atualizacao() {
   printf '\n'
-  printf '%b═══════════════════════════════════════%b\n' "$YELLOW" "$NC"
-  printf '%b NOVA VERSÃO DISPONÍVEL%b\n' "$YELLOW" "$NC"
-  printf '%b═════════════════════════════════════%b\n' "$YELLOW" "$NC"
+  echo "═══════════════════════════════════════"
+  echo " NOVA VERSÃO DISPONÍVEL"
+  echo "═════════════════════════════════════"
   printf '\n'
-  printf '%bVersão instalada: %b%s%b\n' "$CYAN" "$NC" "$CURRENT_VERSION" "$NC"
-  printf '%bVersão disponível: %b%s%b\n' "$CYAN" "$NC" "$LATEST_VERSION" "$NC"
+  echo "Versão instalada: $CURRENT_VERSION"
+  echo "Versão disponível: $LATEST_VERSION"
   printf '\n'
-  print_warning "Uma nova versão do Controle Financeiro está disponível."
+  echo "⚠ Uma nova versão do Controle Financeiro está disponível."
   printf '\n'
-  printf '%bEscolha uma opção:%b\n' "$YELLOW" "$NC"
+  echo "Escolha uma opção:"
   printf '\n'
-  printf "  1) %bATUALIZAR%b para %s (recomendado)\n" "$GREEN" "$NC" "$LATEST_VERSION"
-  printf "  2) %bMANTER%b versão atual (%s)\n" "$YELLOW" "$NC" "$CURRENT_VERSION"
-  printf "  3) %bCANCELAR%b\n" "$RED" "$NC"
+  echo "  1) ATUALIZAR para $LATEST_VERSION (recomendado)"
+  echo "  2) MANTER versão atual ($CURRENT_VERSION)"
+  echo "  3) CANCELAR"
   printf '\n'
   
   # Ler do terminal real (/dev/tty) em vez de stdin
@@ -206,22 +206,22 @@ confirma_atualizacao() {
   case "$escolha" in
     1)
       printf '\n'
-      print_success "Opção selecionada: Atualizar"
+      echo "✓ Opção selecionada: Atualizar"
       return 0
       ;;
     2)
       printf '\n'
-      print_info "Opção selecionada: Manter versão atual"
+      echo "ℹ Opção selecionada: Manter versão atual"
       return 1
       ;;
     3)
       printf '\n'
-      print_info "Instalação cancelada pelo usuário"
+      echo "ℹ Instalação cancelada pelo usuário"
       exit 0
       ;;
     *)
       printf '\n'
-      print_error "Opção inválida"
+      echo "✗ Opção inválida"
       return 2
       ;;
   esac
